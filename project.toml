@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "random-sampler"
+version = "0.1.0"
+description = "Constraint-based random sampling library"
+authors = [
+  { name="Jugai O" }
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy",
+  "joblib"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
