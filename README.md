@@ -1,3 +1,8 @@
 # RandomSampler
 
-Constraint-based random sampling library.
+Flexible constrained random sampler for reverse analysis in machine learning.
+
+## Installation
+
+```bash
+pip install mlsampler
