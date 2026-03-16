@@ -1,8 +1,9 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import Callable, Optional, List, Union
+from typing import Callable, Optional
 from joblib import Parallel, delayed
 from collections import defaultdict
+from .constraint import Constraints
 
 @dataclass
 class FeatureMeta:
@@ -13,7 +14,7 @@ class FeatureMeta:
 
 @dataclass
 class SamplerConfig:
-    features: List[FeatureMeta]
+    features: list[FeatureMeta]
     batch_size: int = 1000
     random_state: Optional[int] = None
     n_jobs: int = -1
@@ -52,13 +53,14 @@ class RandomSampler:
         self.max_retries = config.max_retries
 
         self.dim = len(self.features)
-        self.constraints:List[dict] = []
+        self.constraints:list[dict] = []
         self.constraint_registry = {
-            "sum": self._constraint_sum,
-            "sumint":self._constraint_sum_int,
-            "onehot": self._constraint_onehot,
-            "range": self._constraint_range,
-            "categories": self._constraint_categories,
+            "sum": Constraints.sum,
+            "sumint": Constraints.sum_int,
+            "multihot": Constraints.multihot,
+            "random": Constraints.random,
+            "range": Constraints.range,
+            "categories": Constraints.categories,
         }
 
     @classmethod
@@ -90,6 +92,7 @@ class RandomSampler:
         -------
         RandomSampler
         """
+
         features = []
 
         for col in range(X.shape[1]):
@@ -110,21 +113,25 @@ class RandomSampler:
             )
 
         config = SamplerConfig(
-            features=features,
-            batch_size=batch_size,
-            random_state=random_state,
-            n_jobs=n_jobs,
-            max_retries=max_retries,
+            features = features,
+            batch_size = batch_size,
+            random_state = random_state,
+            n_jobs = n_jobs,
+            max_retries = max_retries,
         )
 
         return cls(config)
 
+    def reset_constraints(self):
+        """Clear all registered constraints."""
+        self.constraints = []
+
     def set_constraints(
-        self,
-        constraint_type: str = "func",
-        fn: Optional[Callable] = None,
-        replace=True,
-        **kwargs
+            self,
+            constraint_type: str = "func",
+            fn: Optional[Callable] = None,
+            replace=False,
+            **kwargs
         ):
 
         """
@@ -134,21 +141,35 @@ class RandomSampler:
         ----------
         constraint_type : str, default="func"
             Type of constraint. Supported types:
-            - "func"
-            - "sum"
-            - "onehot"
-            - "range"
-            - "categories"
+            - "func": user-defined function that takes a row and returns a boolean. Required `fn` parameter.
+            - "sum": constraint based on the sum of selected columns. `sum_value` and `cols` must be provided in kwargs.
+            - "sumint": similar to "sum" but ensures the sum is an integer. `sum_value` and `cols` must be provided in kwargs.
+            - "multihot": constraint ensuring a specified number of columns in a set are active.`n_hot` and `cols` must be provided in kwargs.
+            - "random": constraint selecting a random subset of columns. `cols`, `min_used`, and `max_used` can be provided in kwargs.
+            - "range": constraint setting values within a specified range. `cols`, `min_val`, and `max_val` must be provided in kwargs.
+            - "categories": constraint selecting from a list of categorical values. `col` and `values` must be provided in kwargs.
         fn : callable, optional
             Function that receives a row (np.ndarray) and returns a boolean.
             Required when `constraint_type="func"`.
         replace : bool, default=True
             If True, clears existing constraints before adding the new one.
+        **kwargs
+            Additional parameters specific to the constraint type.
+        
+        Examples
+        --------
+        sampler = RandomSampler.setup(X_train)
 
+        # Custom function constraint
+        sampler.set_constraints("func", fn=lambda x: (0 < x[0] < 1) and (0 < x[1] < 1))
+        
+        # Sum constraint
+        sampler.set_constraints("sum", sum_value=1, cols=[2, 3, 4], max_used=3)
+        
         """
-
+            
         if replace:
-            self.constraints = []
+            self.reset_constraints()
 
         if constraint_type == "func":
             if fn is None:
@@ -167,71 +188,6 @@ class RandomSampler:
             "type": constraint_type,
             "params": kwargs
         })
-
-    def _constraint_sum_int(self, row, value, cols, max_used, min_used=1):
-
-        for c in cols:
-            row[c] = 0
-
-        k = np.random.randint(min_used, max_used + 1)
-        selected = np.random.choice(cols, size=k, replace=False)
-
-        if k == 1:
-            row[selected[0]] = value
-            return row
-        
-        cuts = np.sort(np.random.choice(range(value + k - 1), k - 1, replace=False))
-        parts = np.diff(np.concatenate(([-1], cuts, [value + k - 1]))) - 1
-
-        for c, v in zip(selected, parts):
-            row[c] = v
-
-        return row
-    
-    def _constraint_sum(self, row, value, cols, min_used=1, max_used=None, alpha=None, rng=None):
-
-        if rng is None:
-            rng = np.random.default_rng()
-
-        k = len(cols)
-        if max_used is None:
-            max_used = k
-        
-        used_k = rng.integers(min_used, max_used + 1)
-        selected = rng.choice(cols, size=used_k, replace=False)
-
-        for c in cols:
-            row[c] = 0.0
-
-        if alpha is None:
-            alpha = np.ones(used_k)
-        weights = rng.dirichlet(alpha)
-
-        for c, w in zip(selected, weights):
-            row[c] = w * value
-
-        return row
-
-    def _constraint_onehot(self, row, cols, min_used=1, max_used=1):
-        for c in cols:
-            row[c] = 0
-
-        k = np.random.randint(min_used, max_used + 1)
-        selected = np.random.choice(cols, size=k, replace=False)
-
-        for c in selected:
-            row[c] = 1
-
-        return row
-
-    def _constraint_range(self, row, col, min_val, max_val):
-        row[col] = np.random.uniform(min_val, max_val)
-        return row
-    
-    def _constraint_categories(self, row, col, values):
-        rng = np.random.default_rng()
-        row[col] = rng.choice(values)
-        return row
 
     def _base_sample(self, rng: np.random.Generator):
         x = np.empty(self.dim, dtype=float)
@@ -271,12 +227,10 @@ class RandomSampler:
         col_usage = defaultdict(list)
 
         for i, c in enumerate(self.constraints):
-
             if c["type"] == "func":
                 continue
 
             params = c.get("params", {})
-
             if "cols" in params:
                 for col in params["cols"]:
                     col_usage[col].append(i)
