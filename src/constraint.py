@@ -7,7 +7,7 @@ class Constraints:
     def _reset_cols(row:np.ndarray, cols:list, value: Numeric=0):
         row[cols] = value
         return row
-    
+        
     @staticmethod
     def _rng(rng):
         return rng if rng is not None else np.random.default_rng()
@@ -83,7 +83,8 @@ class Constraints:
         
         if max_used is None:
             max_used = len(cols)
-
+        
+        
         V.cols(cols)
         V.usage(min_used, max_used)
         

@@ -5,6 +5,12 @@ from joblib import Parallel, delayed
 from collections import defaultdict
 from .constraint import Constraints
 
+from .errors import (
+    ConstraintViolationError, 
+    DuplicateColumnWarning
+)
+import warnings
+
 @dataclass
 class FeatureMeta:
     low: Optional[float] = None
@@ -173,7 +179,7 @@ class RandomSampler:
 
         if constraint_type == "func":
             if fn is None:
-                raise ValueError("fn must be provided for func constraint")
+                raise ConstraintViolationError("fn must be provided for func constraint")
 
             self.constraints.append({
                 "type": "func",
@@ -182,7 +188,7 @@ class RandomSampler:
             return
 
         if constraint_type not in self.constraint_registry:
-            raise ValueError(f"Unknown constraint type: {constraint_type}")
+            raise ConstraintViolationError(f"Unsupported constraint type: {constraint_type}")
 
         self.constraints.append({
             "type": constraint_type,
@@ -219,7 +225,9 @@ class RandomSampler:
                 if not result:
                     return None
             else:
-                raise ValueError("Constraint must return numpy array or bool")
+                raise ConstraintViolationError(
+                        f"Constraint returned invalid type: {type(result)}. Must be bool or np.ndarray."
+                    )
 
         return row
 
@@ -237,7 +245,10 @@ class RandomSampler:
 
         for col, ids in col_usage.items():
             if len(ids) > 1:
-                print(f"Warning: Column {col} used in multiple constraints {ids}")
+                warnings.warn(
+                    f"Column {col} used in multiple constraints {ids}",
+                    DuplicateColumnWarning
+                )
     
     def _generate_one(self, seed_offset: int = 0):
         base_seed = self.seed if self.seed is not None else None

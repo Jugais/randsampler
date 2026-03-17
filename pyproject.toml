@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlsampler"
-version = "0.2.0"
+version = "0.2.1"
 description = "Flexible constrained random sampler for reverse analysis in machine learning"
 authors = [
   { name="Jugai O" }
