@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Optional
-from .validate import Validator as V, Numeric
+from . import validate as V
+from .validate import Numeric
 
 class Constraints:
     @staticmethod

@@ -2,6 +2,10 @@ class ConstraintError(ValueError):
     """Custom exception for constraint violations"""
     pass
 
+class ConstraintTypeError(ConstraintError):
+    """Raised when an unsupported constraint type is specified."""
+    pass
+
 class ConstraintViolationError(ConstraintError):
     """Raised when a constraint is violated during data generation"""
     pass
