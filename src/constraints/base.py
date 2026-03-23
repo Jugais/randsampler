@@ -19,8 +19,8 @@ class Constraints(ABC):
     
     def __repr__(self):
         if not self.cols:
-            return f"<{self.__class__.__name__}>"
-        return f"<{self.__class__.__name__}(cols={self.cols})>"
+            return f"{self.__class__.__name__}"
+        return f"{self.__class__.__name__}(cols={self.cols})"
     
     @abstractmethod
     def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None):

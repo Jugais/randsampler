@@ -4,6 +4,7 @@ from .base import Constraints, SelectConstraint
 from .. import validate as v
 from ..types import Numeric, ArrayLike, Bool, ConstraintFn
 from typing import Optional, Callable
+from ..errors import ConstraintViolationError, ConstraintError
 
 class MultihotConstraint(SelectConstraint):
     def __init__(
@@ -108,26 +109,142 @@ class SumIntConstraint(SumConstraint):
         return row
 
 class CategoriesConstraint(Constraints):
-    def __init__(self, col: int, values: list[float], **kwargs):
-        super().__init__([col], **kwargs)
-        self.values = values
-
-    def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
-        rng = self._rng(rng)
-        row[self.cols[0]] = rng.choice(self.values)
-        return row
-
-class RangeConstraint(Constraints):
-    def __init__(self, cols: list[int], lb: float = 0, ub: float = 1, **kwargs):
+    def __init__(self, cols: list[int], values: list[list], strength:str = "hard", **kwargs):
         super().__init__(cols, **kwargs)
-        self.lb = lb
-        self.ub = ub
+        self.strength = strength
+        val_tuples = [tuple(v) for v in values]
+        if len(set(val_tuples)) != len(values):
+            raise ConstraintViolationError("values must be unique")
+        
+        self.values = np.array(values, dtype=object)
+
+    def _constrain(
+            self, 
+            row: np.ndarray, 
+            rng: Optional[np.random.Generator] = None,
+        ) -> np.ndarray:
+        rng = self._rng(rng)
+        
+        current_row = row[self.cols]
+        mask = np.ones(len(self.values), dtype=bool)
+        if self.strength == "hard":
+            for i, col in enumerate(self.cols):
+                if current_row[i] is not None:
+                    mask &= (self.values[:, i] == current_row[i])
+        elif self.strength == "soft":
+            mask = mask
+        else:
+            raise ConstraintError(f"{self.strength} was not supported")
+        
+        valid_patterns = self.values[mask]
+        if len(valid_patterns) == 0:
+            raise ConstraintViolationError("No patterns found in categories")
+
+        idx = rng.integers(len(valid_patterns))
+        selected_pattern = valid_patterns[idx]
+        
+        row[self.cols] = selected_pattern
+        return row
+    
+class RangeConstraint(Constraints):
+    def __init__(self, cols: list[int], low: float = 0, high: float = 1, **kwargs):
+        super().__init__(cols, **kwargs)
+        self.low = low
+        self.high = high
 
     def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         # No need to reset cols here
         rng = self._rng(rng)
-        row[self.cols] = rng.uniform(self.lb, self.ub, size=len(self.cols))
+        row[self.cols] = rng.uniform(self.low, self.high, size=len(self.cols))
         return row
+
+class StepConstraint(Constraints):
+    def __init__(self, col:int, low: float, high: float, step: float, **kwargs):
+        super().__init__(cols=[col], **kwargs)
+        self.values = np.arange(low, high + step, step)
+        self.col = col
+        self.step = step
+
+    def _constrain(
+            self, 
+            row: np.ndarray, 
+            rng: Optional[np.random.Generator] = None
+        ) -> np.ndarray:
+        rng = self._rng(rng)
+        
+        if row[self.col] is not None:
+            if np.any(np.isclose(row[self.col], self.values)):
+                return row
+        
+        row[self.col] = rng.choice(self.values)
+        return row
+
+class StepSumConstraint(StepConstraint):
+    def __init__(
+            self, 
+            cols: list[int], 
+            sum_value: float, 
+            lows: Optional[ArrayLike] = None, 
+            highs: Optional[ArrayLike] = None, 
+            step: float = 1, 
+            **kwargs
+        ):
+        # Initialize parent with the first column's range
+        lows = lows if lows is not None else np.zeros(len(cols))
+        highs = highs if highs is not None else np.ones(len(cols))*100
+        
+        super().__init__(
+            col=cols[0], 
+            low=lows[0], 
+            high=highs[0], 
+            step=step, 
+            **kwargs
+        )
+        self.cols = cols
+
+        self.lows = np.array(lows)
+        self.highs = np.array(highs)
+        self.sum_value = sum_value
+        self.step = step
+
+    def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+        rng = self._rng(rng)
+        
+        # 1. Initialize all target columns with their respective minimum (low) values
+        current_values = self.lows.copy().astype(float)
+        
+        # 2. Calculate the difference to reach the target sum_value
+        current_sum = np.sum(current_values)
+        residual = self.sum_value - current_sum
+        
+        # Basic validation for feasibility
+        if residual < -1e-9:
+            raise ConstraintViolationError(f"Sum of lows ({current_sum}) exceeds sum_value ({self.sum_value}).")
+        
+        if not np.isclose(residual % self.step, 0) and not np.isclose(residual % self.step, self.step):
+            raise ConstraintViolationError(f"Residual ({residual}) is not a multiple of step ({self.step}).")
+
+        # 3. Randomly distribute the residual in 'step' increments
+        num_steps = int(round(residual / self.step))
+        
+        for _ in range(num_steps):
+            # Find indices where adding a step won't exceed the specific column's high limit
+            eligible_indices = [
+                i for i, val in enumerate(current_values)
+                if val + self.step <= self.highs[i] + 1e-9
+            ]
+            
+            if not eligible_indices:
+                raise ConstraintViolationError("Target sum_value is unreachable within defined highs.")
+            
+            # Pick a random column and increment it
+            target_idx = rng.choice(eligible_indices)
+            current_values[target_idx] += self.step
+            
+        # 4. Final assignment to the row
+        row[self.cols] = current_values
+        return row
+
 
 class FunctionConstraint(Constraints):
     def __init__(self, fn: ConstraintFn):

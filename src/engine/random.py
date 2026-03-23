@@ -58,6 +58,8 @@ class RandomSampler(BaseSampler):
             "random": RandomSelectConstraint,
             "range": RangeConstraint,
             "categories": CategoriesConstraint,
+            "step": StepConstraint,
+            "stepsum": StepSumConstraint
         }
 
     def reset_constraints(self):

@@ -5,6 +5,8 @@ from .constraints import (
     RandomSelectConstraint, 
     RangeConstraint, 
     CategoriesConstraint,
+    StepConstraint, 
+    StepSumConstraint,
     FunctionConstraint
 )
 from .base import Constraints
@@ -17,5 +19,7 @@ __all__ = [
     "RandomSelectConstraint", 
     "RangeConstraint", 
     "CategoriesConstraint",
+    "StepConstraint",
+    "StepSumConstraint",
     "FunctionConstraint"
 ]
