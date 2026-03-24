@@ -7,3 +7,5 @@ dist/
 *.egg-info/
 ./vscode/
 *.csv
+.DS_Store/
+.vscode/
