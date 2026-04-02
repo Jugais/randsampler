@@ -9,6 +9,7 @@ from ..errors import (
 )
 
 from typing import Optional, Callable
+from types import MappingProxyType
 from collections import defaultdict
 from joblib import Parallel, delayed
 
@@ -19,7 +20,7 @@ class RandomSampler(BaseSampler):
     Random constraint-based sampler.
 
     This sampler generates samples based on feature metadata
-    inferred from training data. Users can register constraints 
+    inferred from training data. Users can register constraints
     that are applied during sample generation.
 
     Parameters
@@ -31,8 +32,15 @@ class RandomSampler(BaseSampler):
     -----
     Two types of constraints are supported:
 
-    - Validation constraints: return a boolean.
-    - Constructive constraints: return a modified numpy array.
+    - Validation constraints:
+        Return a boolean. If False, the sample is rejected.
+
+    - Constructive constraints:
+        Return a modified numpy array.
+
+    Internally, constraints are unified to return either:
+    - np.ndarray (valid sample)
+    - None (invalid sample)
 
     Sampling is performed with retry logic up to `max_retries`.
     Parallel generation is supported via joblib.
@@ -51,7 +59,7 @@ class RandomSampler(BaseSampler):
 
         self.dim = len(self.features)
         self.constraints:list[Constraints] = []
-        self._registry = {
+        self._registry = MappingProxyType({
             "sum": SumConstraint,
             "sumint": SumIntConstraint,
             "multihot": MultihotConstraint,
@@ -60,12 +68,16 @@ class RandomSampler(BaseSampler):
             "categories": CategoriesConstraint,
             "step": StepConstraint,
             "stepsum": StepSumConstraint
-        }
+        })
 
+    def get_constraint(self, name: str):
+        """Get a registered constraint class by name."""
+        return self._registry.get(name)
+    
     def reset_constraints(self):
         """Clear all registered constraints."""
         self.constraints = []
-    
+
     def set_constraints(
             self,
             constraint_fn: str | Callable = "sum",
@@ -83,8 +95,10 @@ class RandomSampler(BaseSampler):
             - "sumint": similar to "sum" but ensures the sum is an integer. `sum_value` and `cols` must be provided in kwargs.
             - "multihot": constraint ensuring a specified number of columns in a set are active.`n_hot` and `cols` must be provided in kwargs.
             - "random": constraint selecting a random subset of columns. `cols`, `min_used`, and `max_used` can be provided in kwargs.
-            - "range": constraint setting values within a specified range. `cols`, `min_val`, and `max_val` must be provided in kwargs.
-            - "categories": constraint selecting from a list of categorical values. `col` and `values` must be provided in kwargs.
+            - "range": constraint setting values within a specified range. `cols`, `low`, and `high` must be provided in kwargs.
+            - "categories": constraint selecting from a list of categorical values. `cols` and `values` must be provided in kwargs.
+            - "step": constraint selecting values that are multiples of a step. `cols` and `step`, `low`, and `high` must be provided in kwargs.
+            - "stepsum": constraint ensuring the sum of values is a multiple of a step.
         replace : bool, default=True
             If True, clears existing constraints before adding the new one.
         **kwargs
@@ -119,9 +133,9 @@ class RandomSampler(BaseSampler):
         for i, f in enumerate(self.features):
             if f.dtype == dm.bin:
                 x[i] = rng.integers(0, 2)
-            elif f.dtype == dm.integer:
+            elif f.dtype == dm.integer and f.low is not None and f.high is not None:
                 x[i] = rng.integers(int(f.low), int(f.high) + 1)
-            elif f.dtype == dm.flt:
+            elif f.dtype == dm.flt and f.low is not None and f.high is not None:
                 x[i] = rng.uniform(f.low, f.high)
             else:
                 x[i] = 0
@@ -131,7 +145,6 @@ class RandomSampler(BaseSampler):
     def _fill_categorical_features(self, x, rng: np.random.Generator):
         for i, f in enumerate(self.features):
             if f.dtype == dm.cat:
-                # FeatureMeta に保存しておいた categories から選ぶ
                 if f.categories:
                     x[i] = rng.choice(f.categories)
                 else:
@@ -140,19 +153,23 @@ class RandomSampler(BaseSampler):
 
     def _apply_constraints(self, row: np.ndarray) -> Optional[np.ndarray]:
         """
-        Apply registered constraints to a generated row.
+        Apply all registered constraints sequentially.
 
         Parameters
         ----------
-        row : np.ndarray
-            The generated sample to validate/modify.
+        row : np.ndarray Input sample.
 
         Returns
         -------
         np.ndarray or None
-            The modified row if constructive constraints are applied, 
-            or the original row if only validation constraints are present.
-            Returns None if any validation constraint fails.
+            - np.ndarray: if all constraints succeed
+            - None: if any constraint fails
+
+        Notes
+        -----
+        Each constraint must return either:
+        - np.ndarray (possibly modified)
+        - None (indicating failure)
         """
         for constraint in self:
             row = constraint(row)

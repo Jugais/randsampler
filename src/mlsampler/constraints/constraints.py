@@ -103,7 +103,13 @@ class SumIntConstraint(SumConstraint):
             return row
 
         cuts = np.sort(self.rng.choice((self.sum_value + k - 1), k - 1, replace=False))
-        parts = np.diff(np.concatenate(([-1], cuts, [self.sum_value + k - 1]))) - 1
+        parts = np.diff(
+                    np.concatenate((
+                        np.array([-1], dtype=cuts.dtype),
+                        cuts,
+                        np.array([self.sum_value + k - 1], dtype=cuts.dtype)
+                    ))
+                ) - 1
 
         row[selected] = parts
         return row
@@ -159,7 +165,7 @@ class RangeConstraint(Constraints):
         return row
 
 class StepConstraint(Constraints):
-    def __init__(self, col:int, low: float, high: float, step: float, **kwargs):
+    def __init__(self, col:int, step: float, low: float, high: float,  **kwargs):
         super().__init__(cols=[col], **kwargs)
         self.values = np.arange(low, high + step, step)
         self.col = col
@@ -255,12 +261,12 @@ class FunctionConstraint(Constraints):
             self, 
             row: np.ndarray, 
             rng: Optional[np.random.Generator] = None
-        ) -> Optional[np.ndarray]:
+        ) -> np.ndarray:
         result = self.fn(row)
 
         if isinstance(result, Bool):
             if not result:
-                return None
+                raise ConstraintViolationError("Constraint failed for row: " + str(row))
             else:
                 return row
         elif isinstance(result, np.ndarray):

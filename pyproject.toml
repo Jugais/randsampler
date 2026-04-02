@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlsampler"
-version = "0.3.0"
+version = "0.3.1"
 description = "Flexible constrained random sampler for reverse analysis in machine learning"
 authors = [
   { name="Jugai O" }
@@ -15,6 +15,8 @@ dependencies = [
   "numpy",
   "joblib"
 ]
+
+license = { text= "LICENSE" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
