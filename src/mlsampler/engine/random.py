@@ -247,7 +247,7 @@ class RandomSampler(BaseSampler):
 
         raise ConstraintViolationError("Max retries exceeded.")
 
-    def _sample(self, n_samples):
+    def _sample(self, n_samples: int) -> np.ndarray:
         if self.n_jobs == 1:
             samples = [
                 self._generate_one(i) for i in range(n_samples)
@@ -257,9 +257,9 @@ class RandomSampler(BaseSampler):
                 delayed(self._generate_one)(i)
                 for i in range(n_samples)
             )
-        return samples
+        return np.array(samples)
 
-    def sample(self, n_samples: int):
+    def sample(self, n_samples: int) -> np.ndarray:
         """
         Generate samples satisfying all registered constraints.
 
@@ -280,7 +280,7 @@ class RandomSampler(BaseSampler):
         with spinning():
             samples = self._sample(n_samples)
             
-        return np.array(samples)
+        return samples
 
 
     

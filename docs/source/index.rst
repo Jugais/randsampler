@@ -7,5 +7,6 @@ Welcome to mlsampler!
 .. toctree::
    :maxdepth: 2
 
-   random_sampler
+   RandomSampler
+   HyperGridSampler
    tutorial
