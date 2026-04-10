@@ -46,7 +46,13 @@
 <li class="toctree-l1"><a class="reference internal" href="RandomSampler.html">Random Sampler</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Hybrid Grid Sampler</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#api-reference">API Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-mlsampler.engine.hypergrid">API Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mlsampler.engine.hypergrid.HyperGridSampler"><code class="docutils literal notranslate"><span class="pre">HyperGridSampler</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mlsampler.engine.hypergrid.HyperGridSampler.sample"><code class="docutils literal notranslate"><span class="pre">HyperGridSampler.sample()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
@@ -88,8 +94,60 @@
 <li><p>Parallel sampling supported</p></li>
 </ul>
 </section>
-<section id="api-reference">
-<h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h2>
+<section id="module-mlsampler.engine.hypergrid">
+<span id="api-reference"></span><h2>API Reference<a class="headerlink" href="#module-mlsampler.engine.hypergrid" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mlsampler.engine.hypergrid.HyperGridSampler">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mlsampler.engine.hypergrid.</span></span><span class="sig-name descname"><span class="pre">HyperGridSampler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mlsampler.engine.hypergrid.HyperGridSampler" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseSampler</span></code></p>
+<p>Hybrid grid and LHS-based constraint sampler.</p>
+<p>This sampler generates samples based on feature metadata inferred
+from training data. Continuous features are sampled using Latin
+Hypercube Sampling (LHS), while discrete features (e.g., integer,
+binary, categorical) are sampled using grid random selection
+over their respective value spaces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>config</strong> (<em>SamplerConfig</em>) – Configuration object containing feature metadata and sampling settings.</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Sampling strategy depends on feature data types:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Float features:</dt><dd><p>Sampled using Latin Hypercube Sampling (LHS), then scaled to
+their respective [low, high] ranges.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Integer features:</dt><dd><p>Sampled uniformly from the inclusive range [low, high].</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Binary features:</dt><dd><p>Sampled uniformly from {0, 1}.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Categorical features:</dt><dd><p>Sampled uniformly from the provided category list.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Constant features:</dt><dd><p>Always return the same fixed value.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="mlsampler.engine.hypergrid.HyperGridSampler.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="headerlink" href="#mlsampler.engine.hypergrid.HyperGridSampler.sample" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 
