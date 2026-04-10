@@ -1,5 +1,5 @@
 import numpy as np
-
+from ..terminals import spinning
 from ..base import BaseSampler, SamplerConfig, DtypeMeta as dm
 from ..constraints import *
 from ..errors import (
@@ -8,7 +8,7 @@ from ..errors import (
     DuplicateColumnWarning
 )
 
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 from types import MappingProxyType
 from collections import defaultdict
 from joblib import Parallel, delayed
@@ -52,13 +52,13 @@ class RandomSampler(BaseSampler):
         super().__init__(config)
         self.rng = np.random.default_rng(config.random_state)
         self.features = config.features
-        self.batch_size = config.batch_size
         self.n_jobs = config.n_jobs
         self.seed = config.random_state
         self.max_retries = config.max_retries
 
         self.dim = len(self.features)
-        self.constraints:list[Constraints] = []
+        self._constraints:list[Constraints] = []
+        self._funcs: list[FunctionConstraint] = []
         self._registry = MappingProxyType({
             "sum": SumConstraint,
             "sumint": SumIntConstraint,
@@ -67,21 +67,23 @@ class RandomSampler(BaseSampler):
             "range": RangeConstraint,
             "categories": CategoriesConstraint,
             "step": StepConstraint,
-            "stepsum": StepSumConstraint
+            "stepsum": SumStepConstraint,
+            
         })
 
-    def get_constraint(self, name: str):
-        """Get a registered constraint class by name."""
-        return self._registry.get(name)
-    
+    @property
+    def constraints(self):
+        """Get a registered constraint class"""
+        return tuple(self._constraints.copy())
+
     def reset_constraints(self):
         """Clear all registered constraints."""
-        self.constraints = []
+        self._constraints = []
 
     def set_constraints(
             self,
-            constraint_fn: str | Callable = "sum",
-            replace=False,
+            constraint_fn: str | Callable[[np.ndarray], bool],
+            reset=False,
             **kwargs
         ):
         """
@@ -90,7 +92,7 @@ class RandomSampler(BaseSampler):
         ----------
         constraint_fn : str or callable, default="sum"
             Type of constraint. Supported types:
-            - callable: user-defined function that takes a row and returns a boolean. Required `fn` parameter.
+            - callable: user-defined function that takes a row and returns a boolean or a new row. `cols` must be provided in kwargs.
             - "sum": constraint based on the sum of selected columns. `sum_value` and `cols` must be provided in kwargs.
             - "sumint": similar to "sum" but ensures the sum is an integer. `sum_value` and `cols` must be provided in kwargs.
             - "multihot": constraint ensuring a specified number of columns in a set are active.`n_hot` and `cols` must be provided in kwargs.
@@ -99,7 +101,7 @@ class RandomSampler(BaseSampler):
             - "categories": constraint selecting from a list of categorical values. `cols` and `values` must be provided in kwargs.
             - "step": constraint selecting values that are multiples of a step. `cols` and `step`, `low`, and `high` must be provided in kwargs.
             - "stepsum": constraint ensuring the sum of values is a multiple of a step.
-        replace : bool, default=True
+        reset : bool, default=True
             If True, clears existing constraints before adding the new one.
         **kwargs
             Additional parameters specific to the constraint type.
@@ -111,38 +113,40 @@ class RandomSampler(BaseSampler):
         >>> # Custom function constraint
         >>> sampler.set_constraints(lambda x: (0 < x[0] < 1) and (0 < x[1] < 1))
         >>> # Sum constraint
-        >>> sampler.set_constraints("sum", sum_value=1, cols=[2, 3, 4], max_used=3)
+        >>> sampler.set_constraints("sum", sum_value=1, cols=[2, 3, 4], max_used=2)
         """
 
-        if replace:
-            self.constraints = []
-        
+        if reset:
+            self._constraints = []
+            self._funcs = []
+
         if callable(constraint_fn):
-            self.constraints.append(FunctionConstraint(fn=constraint_fn))
+            self._constraints.append(FunctionConstraint(fn=constraint_fn, **kwargs))
+            self._funcs.append(FunctionConstraint(fn=constraint_fn, **kwargs))
         elif isinstance(constraint_fn, str) and constraint_fn in self._registry:
-            self.constraints.append(self._registry[constraint_fn](**kwargs))
+            self._constraints.append(self._registry[constraint_fn](**kwargs))
         else:
             raise ConstraintTypeError(
-                    f"Unsupported constraint type: {constraint_fn}"
-                )
+                f"Unsupported constraint type: {constraint_fn}"
+            )
         
     def _base_sample(self, rng: np.random.Generator):
-        # x = np.empty(self.dim, dtype=float)
-        x = np.empty(len(self.config.features), dtype=object)
-
+        x = np.empty(self.dim, dtype=object)
         for i, f in enumerate(self.features):
-            if f.dtype == dm.bin:
+            if f.dtype == dm.const:
+                x[i] = f.low
+            elif f.dtype == dm.bin:
                 x[i] = rng.integers(0, 2)
             elif f.dtype == dm.integer and f.low is not None and f.high is not None:
                 x[i] = rng.integers(int(f.low), int(f.high) + 1)
-            elif f.dtype == dm.flt and f.low is not None and f.high is not None:
+            elif f.dtype == dm.float and f.low is not None and f.high is not None:
                 x[i] = rng.uniform(f.low, f.high)
             else:
                 x[i] = 0
 
         return x
     
-    def _fill_categorical_features(self, x, rng: np.random.Generator):
+    def _fill_categoricals(self, x, rng: np.random.Generator):
         for i, f in enumerate(self.features):
             if f.dtype == dm.cat:
                 if f.categories:
@@ -172,19 +176,52 @@ class RandomSampler(BaseSampler):
         - None (indicating failure)
         """
         for constraint in self:
-            row = constraint(row)
-            if row is None:
+            if isinstance(constraint, FunctionConstraint):
+                continue
+
+            result = constraint(row)
+            if result is None:
                 return None  # Constraint violation
+            row = result
         return row
     
+    def _apply_funcs(self, row: np.ndarray) -> Optional[np.ndarray]:
+        for constraint in self._funcs:
+            result = constraint(row)
+            if result is None:
+                return None
+        return row
+
     def _detect_conflicts(self):
         col_usage = defaultdict(list)
+        constraints_by_col = defaultdict(list)
 
-        for i, c in enumerate(self.constraints):
+        for i, c in enumerate(self._constraints):
             for col in getattr(c, "cols", []):
                 col_usage[col].append(i)
+                constraints_by_col[col].append(c)
 
         for col, ids in col_usage.items():
+            constraints = constraints_by_col[col]
+            types = {getattr(c, "constraint_fn", None) for c in constraints}
+
+            meta = self.config.features[col]
+            
+            if meta.dtype == dm.cat:
+                invalid = types & {"sum", "sumint", "range"}
+
+                if invalid:
+                    raise ConstraintViolationError(
+                        f"{invalid} cannot be applied to categorical column: {col}"
+                    )
+
+            if meta.dtype == dm.const:
+                if len(ids) > 1:
+                    warnings.warn(
+                        f"Const column {col} has multiple constraints {ids} (types={types})",
+                        DuplicateColumnWarning
+                    )
+
             if len(ids) > 1:
                 warnings.warn(
                     f"Column {col} used in multiple constraints {ids}",
@@ -194,20 +231,33 @@ class RandomSampler(BaseSampler):
     def _generate_one(self, seed_offset: int = 0):
         base_seed = self.seed if self.seed is not None else None
         rng = np.random.default_rng(
-            None if base_seed is None else base_seed + seed_offset
+            (base_seed + seed_offset) if base_seed else None
         )
 
         for _ in range(self.max_retries):
             x = self._base_sample(rng)
-            x = self._fill_categorical_features(x, rng)
-            x = self._apply_constraints(x) 
+            x = self._fill_categoricals(x, rng)
+            x = self._apply_constraints(x)
+            if x is None:
+                continue
+
+            x = self._apply_funcs(x)
             if x is not None:
                 return x
-        
+
         raise ConstraintViolationError("Max retries exceeded.")
-    
-    def _generate_batch(self, batch_size):
-        return np.array([self._generate_one() for _ in range(batch_size)])
+
+    def _sample(self, n_samples):
+        if self.n_jobs == 1:
+            samples = [
+                self._generate_one(i) for i in range(n_samples)
+            ]
+        else:
+            samples = Parallel(n_jobs=self.n_jobs)(
+                delayed(self._generate_one)(i)
+                for i in range(n_samples)
+            )
+        return samples
 
     def sample(self, n_samples: int):
         """
@@ -224,31 +274,13 @@ class RandomSampler(BaseSampler):
             Array of shape (n_samples, n_features).
 
         """
-
+        
         self._detect_conflicts()
 
-        batches = []
-        remaining = n_samples
+        with spinning():
+            samples = self._sample(n_samples)
+            
+        return np.array(samples)
 
-        print("sampling...", flush=True)
 
-        while remaining > 0:
-            current_batch = min(self.batch_size, remaining)
-
-            if self.n_jobs == 1:
-                batch = self._generate_batch(current_batch)
-            else:
-                results = Parallel(n_jobs=self.n_jobs)(
-                    delayed(self._generate_one)()
-                    for _ in range(current_batch)
-                )
-                batch = np.array(results)
-
-            batches.append(batch)
-
-            remaining -= current_batch
-
-            print(f"{n_samples - remaining}/{n_samples}", flush=True)
-
-        return np.vstack(batches)
     

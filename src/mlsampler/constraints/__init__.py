@@ -6,7 +6,7 @@ from .constraints import (
     RangeConstraint, 
     CategoriesConstraint,
     StepConstraint, 
-    StepSumConstraint,
+    SumStepConstraint,
     FunctionConstraint
 )
 from .base import Constraints
@@ -20,6 +20,6 @@ __all__ = [
     "RangeConstraint", 
     "CategoriesConstraint",
     "StepConstraint",
-    "StepSumConstraint",
+    "SumStepConstraint",
     "FunctionConstraint"
 ]

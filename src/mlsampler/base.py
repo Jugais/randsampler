@@ -14,10 +14,11 @@ class FeatureMeta:
 
 @dataclass(frozen=True)
 class DtypeMeta:
-    flt: str = "float"
+    float: str = "float"
     integer: str = "int"
     bin:str = "binary"
     cat:str = "categorical"
+    const:str = "constant"
 
 @dataclass
 class SamplerConfig:
@@ -44,13 +45,12 @@ class BaseSampler(ABC):
 
     def __init__(self, config: SamplerConfig) -> None:
         self.config = config
-        self.constraints = []
+        self._constraints = []
         
     @classmethod
     def setup(
             cls,
             X: np.ndarray,
-            batch_size: int = 1000,
             random_state: Optional[int] = None,
             n_jobs: int = -1,
             max_retries: int = 1000,
@@ -89,36 +89,39 @@ class BaseSampler(ABC):
             low, high = None, None
             categories = None
             dtype = None
-            
+            unique_vals = np.unique(col_data)
             try:
                 numeric_data = col_data.astype(float)
                 low = numeric_data.min()
                 high = numeric_data.max()
-                unique_vals = np.unique(col_data)
 
-                if set(unique_vals).issubset({0, 1}):
+                if np.isclose(low, high, equal_nan=True):
+                    dtype = DtypeMeta.const
+                elif set(unique_vals).issubset({0, 1}):
                     dtype = DtypeMeta.bin
                 elif np.all(numeric_data.astype(int) == numeric_data):
                     dtype = DtypeMeta.integer
                 else:
-                    dtype = DtypeMeta.flt
+                    dtype = DtypeMeta.float
             except (ValueError, TypeError):
-                dtype = DtypeMeta.cat
+                if len(unique_vals) == 1:
+                    dtype = DtypeMeta.const
+                else:    
+                    dtype = DtypeMeta.cat
                 categories=np.unique(col_data).tolist()
 
             features.append(
                 FeatureMeta(
-                    index=col, 
-                    low=low, 
-                    high=high, 
-                    dtype=dtype, 
+                    index=col,
+                    low=low,
+                    high=high,
+                    dtype=dtype,
                     categories=categories
                 )
             )
 
         config = SamplerConfig(
             features = features,
-            batch_size = batch_size,
             random_state = random_state,
             n_jobs = n_jobs,
             max_retries = max_retries,
@@ -150,7 +153,7 @@ class BaseSampler(ABC):
         return f"<{self.__class__.__name__} with {len(self)} constraints>"
     
     def __iter__(self):
-        return iter(self.constraints)
+        return iter(self._constraints)
     
     def __bool__(self):
         return bool(self.constraints)

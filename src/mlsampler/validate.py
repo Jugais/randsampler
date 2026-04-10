@@ -35,14 +35,14 @@ def validate_values(value: Numeric):
     if value < 0:
         warnings.warn("Value should be non-negative", ConstraintWarning)
         
-def validate_range(min_val: Numeric, max_val: Numeric):
-    if not isinstance(min_val, Numeric):
-        raise TypeError("min_val must be a numeric")
+def validate_range(low: Numeric, high: Numeric):
+    if not isinstance(low, Numeric):
+        raise ConstraintTypeError("low must be a numeric")
     
-    if not isinstance(max_val, Numeric):
-        raise TypeError("max_val must be a numeric")
+    if not isinstance(high, Numeric):
+        raise ConstraintTypeError("high must be a numeric")
     
-    if min_val > max_val:
-        raise ConstraintValidationError("min_val must be <= max_val")
+    if low > high:
+        raise ConstraintValidationError("low must be <= high")
     
         

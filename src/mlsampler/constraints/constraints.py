@@ -4,7 +4,7 @@ from .base import Constraints, SelectConstraint
 from .. import validate as v
 from ..types import Numeric, ArrayLike, Bool, ConstraintFn
 from typing import Optional, Callable
-from ..errors import ConstraintViolationError, ConstraintError
+from ..errors import ConstraintViolationError, ConstraintError, ConstraintTypeError
 
 class MultihotConstraint(SelectConstraint):
     def __init__(
@@ -29,7 +29,7 @@ class MultihotConstraint(SelectConstraint):
         ) -> np.ndarray:
         row[selected] = 1
         return row
-    
+
 class RandomSelectConstraint(SelectConstraint):
     def __init__(
             self, 
@@ -53,7 +53,8 @@ class RandomSelectConstraint(SelectConstraint):
 class SumConstraint(SelectConstraint):
     def __init__(self, 
             cols: list[int], 
-            sum_value: Numeric = 1, 
+            sum_value: Numeric = 1,
+            method: str = 'dirichlet',
             alpha: Optional[np.ndarray] = None,
             rng: Optional[np.random.Generator] = None,
             **kwargs
@@ -62,6 +63,7 @@ class SumConstraint(SelectConstraint):
 
         super().__init__(cols, **kwargs)
         self.sum_value = sum_value
+        self.method = method
         self.alpha = alpha
         self.rng = self._rng(rng)
 
@@ -80,14 +82,20 @@ class SumConstraint(SelectConstraint):
         Returns:
             np.ndarray: The modified row
         """
-        if self.alpha is None:
-            alpha = np.ones(len(selected))
+        
+        if self.method == 'dirichlet':
+            if self.alpha is None:
+                alpha = np.ones(len(selected))
+            else:
+                alpha = self.alpha
+
+            weights = self.rng.dirichlet(alpha)
+            row[selected] = weights * self.sum_value
+        elif self.method == 'simple':
+            row[selected] = row / np.sum(row) * self.sum_value
         else:
-            alpha = self.alpha
+            raise ConstraintTypeError(f'Method: {self.method} not implemented')
 
-        weights = self.rng.dirichlet(alpha)
-
-        row[selected] = weights * self.sum_value
         return row
 
 class SumIntConstraint(SumConstraint):
@@ -140,11 +148,11 @@ class CategoriesConstraint(Constraints):
         elif self.strength == "soft":
             mask = mask
         else:
-            raise ConstraintError(f"{self.strength} was not supported")
+            raise ConstraintError(f"{self.strength} was not supported.")
         
         valid_patterns = self.values[mask]
         if len(valid_patterns) == 0:
-            raise ConstraintViolationError("No patterns found in categories")
+            raise ConstraintViolationError("No patterns found in categories.")
 
         idx = rng.integers(len(valid_patterns))
         selected_pattern = valid_patterns[idx]
@@ -185,7 +193,7 @@ class StepConstraint(Constraints):
         row[self.col] = rng.choice(self.values)
         return row
 
-class StepSumConstraint(StepConstraint):
+class SumStepConstraint(StepConstraint):
     def __init__(
             self, 
             cols: list[int], 
@@ -216,10 +224,7 @@ class StepSumConstraint(StepConstraint):
     def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         rng = self._rng(rng)
         
-        # 1. Initialize all target columns with their respective minimum (low) values
         current_values = self.lows.copy().astype(float)
-        
-        # 2. Calculate the difference to reach the target sum_value
         current_sum = np.sum(current_values)
         residual = self.sum_value - current_sum
         
@@ -230,7 +235,7 @@ class StepSumConstraint(StepConstraint):
         if not np.isclose(residual % self.step, 0) and not np.isclose(residual % self.step, self.step):
             raise ConstraintViolationError(f"Residual ({residual}) is not a multiple of step ({self.step}).")
 
-        # 3. Randomly distribute the residual in 'step' increments
+        # Randomly distribute the residual in 'step' increments
         num_steps = int(round(residual / self.step))
         
         for _ in range(num_steps):
@@ -243,34 +248,30 @@ class StepSumConstraint(StepConstraint):
             if not eligible_indices:
                 raise ConstraintViolationError("Target sum_value is unreachable within defined highs.")
             
-            # Pick a random column and increment it
             target_idx = rng.choice(eligible_indices)
             current_values[target_idx] += self.step
             
-        # 4. Final assignment to the row
         row[self.cols] = current_values
         return row
 
 
 class FunctionConstraint(Constraints):
-    def __init__(self, fn: ConstraintFn):
-        super().__init__(cols=[])
+    def __init__(self, fn: ConstraintFn, cols:list[int]):
+        super().__init__(cols=cols)
         self.fn = fn
     
     def _constrain(
             self, 
             row: np.ndarray, 
             rng: Optional[np.random.Generator] = None
-        ) -> np.ndarray:
+        ) -> Optional[np.ndarray]:
+        
         result = self.fn(row)
 
         if isinstance(result, Bool):
-            if not result:
-                raise ConstraintViolationError("Constraint failed for row: " + str(row))
-            else:
-                return row
+            return row if result else None
         elif isinstance(result, np.ndarray):
-            return result
+            row[self.cols] = result
+            return row
         else:
-            from ..errors import ConstraintTypeError
             raise ConstraintTypeError("Constraint function must return either a boolean or a numpy array")
