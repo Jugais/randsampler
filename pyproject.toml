@@ -20,3 +20,6 @@ license = { text= "LICENSE" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.optional-dependencies]
+docs = ["sphinx", "sphinx-rtd-theme", "scipy"]

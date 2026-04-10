@@ -1,9 +1,12 @@
 import numpy as np
 from typing import Optional
-from scipy.stats import qmc
 from ..base import BaseSampler, DtypeMeta as dm
 from ..errors import ConstraintViolationError
 from ..terminals import spinning
+try:
+    from scipy.stats import qmc
+except:
+    qmc = None
 
 class HyperGridSampler(BaseSampler):
     """
@@ -47,10 +50,14 @@ class HyperGridSampler(BaseSampler):
 
     def _lhs(self, n_samples: int, float_features: list):
         """LHS sampling for float columns"""
+        if qmc is None:
+            raise ImportError("scipy is required for HyperGridSampler")
+        
         if not float_features:
             return np.empty((n_samples, 0))
 
         dim = len(float_features)
+        
         sampler = qmc.LatinHypercube(d=dim, seed=self.config.random_state)
         sample = sampler.random(n=n_samples)
 
