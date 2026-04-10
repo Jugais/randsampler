@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Tutorial" href="tutorial.html" />
+    <link rel="next" title="Hybrid Grid Sampler" href="HyperGridSampler.html" />
     <link rel="prev" title="Documentation of mlsampler" href="index.html" /> 
 </head>
 
@@ -47,7 +47,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-mlsampler.engine.random">API Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#mlsampler.engine.random.RandomSampler"><code class="docutils literal notranslate"><span class="pre">RandomSampler</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#mlsampler.engine.random.RandomSampler.get_constraint"><code class="docutils literal notranslate"><span class="pre">RandomSampler.get_constraint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mlsampler.engine.random.RandomSampler.constraints"><code class="docutils literal notranslate"><span class="pre">RandomSampler.constraints</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mlsampler.engine.random.RandomSampler.reset_constraints"><code class="docutils literal notranslate"><span class="pre">RandomSampler.reset_constraints()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mlsampler.engine.random.RandomSampler.sample"><code class="docutils literal notranslate"><span class="pre">RandomSampler.sample()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mlsampler.engine.random.RandomSampler.set_constraints"><code class="docutils literal notranslate"><span class="pre">RandomSampler.set_constraints()</span></code></a></li>
@@ -57,6 +57,7 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="HyperGridSampler.html">Hybrid Grid Sampler</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
 </ul>
 
@@ -76,7 +77,7 @@
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
       <li class="breadcrumb-item active">Random Sampler</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="_sources/random_sampler.rst.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/RandomSampler.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -129,10 +130,10 @@ that are applied during sample generation.</p>
 - None (invalid sample)</p>
 <p>Sampling is performed with retry logic up to <cite>max_retries</cite>.
 Parallel generation is supported via joblib.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="mlsampler.engine.random.RandomSampler.get_constraint">
-<span class="sig-name descname"><span class="pre">get_constraint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mlsampler.engine.random.RandomSampler.get_constraint" title="Link to this definition"></a></dt>
-<dd><p>Get a registered constraint class by name.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="mlsampler.engine.random.RandomSampler.constraints">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">constraints</span></span><a class="headerlink" href="#mlsampler.engine.random.RandomSampler.constraints" title="Link to this definition"></a></dt>
+<dd><p>Get a registered constraint class</p>
 </dd></dl>
 
 <dl class="py method">
@@ -143,7 +144,7 @@ Parallel generation is supported via joblib.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mlsampler.engine.random.RandomSampler.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mlsampler.engine.random.RandomSampler.sample" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="headerlink" href="#mlsampler.engine.random.RandomSampler.sample" title="Link to this definition"></a></dt>
 <dd><p>Generate samples satisfying all registered constraints.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -160,12 +161,12 @@ Parallel generation is supported via joblib.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mlsampler.engine.random.RandomSampler.set_constraints">
-<span class="sig-name descname"><span class="pre">set_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constraint_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Callable</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'sum'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">replace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mlsampler.engine.random.RandomSampler.set_constraints" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constraint_fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mlsampler.engine.random.RandomSampler.set_constraints" title="Link to this definition"></a></dt>
 <dd><p>Set a constraint to the sampler.
 :param constraint_fn: Type of constraint. Supported types:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>callable: user-defined function that takes a row and returns a boolean. Required <cite>fn</cite> parameter.</p></li>
+<li><p>callable: user-defined function that takes a row and returns a boolean or a new row. <cite>cols</cite> must be provided in kwargs.</p></li>
 <li><p>“sum”: constraint based on the sum of selected columns. <cite>sum_value</cite> and <cite>cols</cite> must be provided in kwargs.</p></li>
 <li><p>“sumint”: similar to “sum” but ensures the sum is an integer. <cite>sum_value</cite> and <cite>cols</cite> must be provided in kwargs.</p></li>
 <li><p>“multihot”: constraint ensuring a specified number of columns in a set are active.`n_hot` and <cite>cols</cite> must be provided in kwargs.</p></li>
@@ -179,7 +180,7 @@ Parallel generation is supported via joblib.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>replace</strong> (<em>bool</em><em>, </em><em>default=True</em>) – If True, clears existing constraints before adding the new one.</p></li>
+<li><p><strong>reset</strong> (<em>bool</em><em>, </em><em>default=True</em>) – If True, clears existing constraints before adding the new one.</p></li>
 <li><p><strong>**kwargs</strong> – Additional parameters specific to the constraint type.</p></li>
 </ul>
 </dd>
@@ -190,7 +191,7 @@ Parallel generation is supported via joblib.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Custom function constraint</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Sum constraint</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -205,7 +206,7 @@ Parallel generation is supported via joblib.</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Documentation of mlsampler" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="tutorial.html" class="btn btn-neutral float-right" title="Tutorial" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="HyperGridSampler.html" class="btn btn-neutral float-right" title="Hybrid Grid Sampler" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
