@@ -13,6 +13,7 @@ Random Sampling
 ---------------
 
 .. code-block:: python
+    
     def create_demo_df():
         data = {
             "is_active": [1, 0, 1, 1, 0],

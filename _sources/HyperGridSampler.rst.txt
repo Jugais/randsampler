@@ -14,7 +14,7 @@ Overview
 API Reference
 -------------
 
-.. automodule:: mlsampler.engine.hybrid
+.. automodule:: mlsampler.engine.hypergrid
    :members:
    :undoc-members:
    :show-inheritance:
