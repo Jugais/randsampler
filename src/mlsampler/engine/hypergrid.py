@@ -89,32 +89,6 @@ class HyperGridSampler(BaseSampler):
         return np.column_stack(cols) if cols else np.empty((n_samples, 0))
 
     def _sample(self, n_samples: int) -> np.ndarray:
-        """
-        Generate samples based on feature data types.
-
-        Continuous features are sampled using Latin Hypercube Sampling (LHS),
-        while discrete features (e.g., "int", "binary", "categorical", "constant") are
-        sampled using uniform random selection over their respective value spaces.
-
-        Parameters
-        ----------
-        n_samples : int
-            Total number of samples to generate.
-
-        Returns
-        -------
-        np.ndarray
-            Array of shape (n_samples, n_features) containing the generated samples.
-            The column order matches the input feature configuration.
-
-        Notes
-        -----
-        - Float features are scaled to their respective [low, high] ranges.
-        - Integer features are sampled from the inclusive range [low, high].
-        - Categorical features are sampled from the provided category list.
-        - Constant features return the same value for all samples.
-        """
-
         float_feats = [f for f in self.config.features if f.dtype == dm.float]
         discrete_feats = [f for f in self.config.features if f.dtype != dm.float]
 
@@ -137,6 +111,26 @@ class HyperGridSampler(BaseSampler):
         return result
 
     def sample(self, n_samples: int) -> np.ndarray:
+        """
+        Parameters
+        ----------
+        n_samples : int
+            Total number of samples to generate.
+
+        Returns
+        -------
+        np.ndarray
+            Array of shape (n_samples, n_features) containing the generated samples.
+            The column order matches the input feature configuration.
+
+        Notes
+        -----
+        - Float features are scaled to their respective [low, high] ranges.
+        - Integer features are sampled from the inclusive range [low, high].
+        - Categorical features are sampled from the provided category list.
+        - Constant features return the same value for all samples.
+        """
+        
         with spinning():
             samples = self._sample(n_samples)
         return samples
