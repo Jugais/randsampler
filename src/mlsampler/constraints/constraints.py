@@ -165,6 +165,7 @@ class RangeConstraint(Constraints):
         super().__init__(cols, **kwargs)
         self.low = low
         self.high = high
+        v.validate_range(low, high)
 
     def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         # No need to reset cols here
@@ -175,13 +176,20 @@ class RangeConstraint(Constraints):
 class StepConstraint(Constraints):
     def __init__(self, col:int, step: float, low: float, high: float,  **kwargs):
         super().__init__(cols=[col], **kwargs)
-        self.values = np.arange(low, high + step, step)
         self.col = col
+
+        n_steps = int(np.floor((high - low) / step))
+        self.values = low + np.arange(n_steps + 1) * step
+
+        self.low = low
+        self.high = high
         self.step = step
 
+        v.validate_range(low, high, step)
+
     def _constrain(
-            self, 
-            row: np.ndarray, 
+            self,
+            row: np.ndarray,
             rng: Optional[np.random.Generator] = None
         ) -> np.ndarray:
         rng = self._rng(rng)
@@ -246,7 +254,9 @@ class SumStepConstraint(StepConstraint):
             ]
             
             if not eligible_indices:
-                raise ConstraintViolationError("Target sum_value is unreachable within defined highs.")
+                raise ConstraintViolationError(
+                    "Target sum_value is unreachable within defined highs."
+                )
             
             target_idx = rng.choice(eligible_indices)
             current_values[target_idx] += self.step
@@ -274,4 +284,6 @@ class FunctionConstraint(Constraints):
             row[self.cols] = result
             return row
         else:
-            raise ConstraintTypeError("Constraint function must return either a boolean or a numpy array")
+            raise ConstraintTypeError(
+                "Constraint function must return either a boolean or a numpy array"
+            )

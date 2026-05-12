@@ -35,7 +35,7 @@ def validate_values(value: Numeric):
     if value < 0:
         warnings.warn("Value should be non-negative", ConstraintWarning)
         
-def validate_range(low: Numeric, high: Numeric):
+def validate_range(low: Numeric, high: Numeric, step: Numeric = 0):
     if not isinstance(low, Numeric):
         raise ConstraintTypeError("low must be a numeric")
     
@@ -45,4 +45,6 @@ def validate_range(low: Numeric, high: Numeric):
     if low > high:
         raise ConstraintValidationError("low must be <= high")
     
+    if step < 0:
+        raise ConstraintValidationError("step must be non-negative")
         

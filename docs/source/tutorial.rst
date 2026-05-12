@@ -74,6 +74,7 @@ Notes
 -----
 
 - ``RandomSampler`` is recommended when:
+
   - You have multiple constraints to satisfy simultaneously
   - The relationships between variables are complex or hard to express analytically 
 
