@@ -45,9 +45,25 @@
 <li class="toctree-l1"><a class="reference internal" href="RandomSampler.html">Random Sampler</a></li>
 <li class="toctree-l1"><a class="reference internal" href="HyperGridSampler.html">Hybrid Grid Sampler</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#random-sampling">Random Sampling</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#hypergrid-sampling">HyperGrid Sampling</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reproducibility">Reproducibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#constraints">Constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sum"><code class="docutils literal notranslate"><span class="pre">sum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sumint"><code class="docutils literal notranslate"><span class="pre">sumint</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multihot"><code class="docutils literal notranslate"><span class="pre">multihot</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#random"><code class="docutils literal notranslate"><span class="pre">random</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#range"><code class="docutils literal notranslate"><span class="pre">range</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#step"><code class="docutils literal notranslate"><span class="pre">step</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#stepsum"><code class="docutils literal notranslate"><span class="pre">stepsum</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#categories"><code class="docutils literal notranslate"><span class="pre">categories</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#callable-constraints">Callable constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#combining-constraints">Combining constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hypergrid-sampling">HyperGrid sampling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parallel-execution">Parallel execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#choosing-a-sampler">Choosing a sampler</a></li>
 </ul>
 </li>
 </ul>
@@ -78,80 +94,333 @@
              
   <section id="tutorial">
 <h1>Tutorial<a class="headerlink" href="#tutorial" title="Link to this heading"></a></h1>
-<p>Basic usage:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">mlsampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomSampler</span><span class="p">,</span> <span class="n">HybridSampler</span>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mlsampler
 </pre></div>
 </div>
-<section id="random-sampling">
-<h2>Random Sampling<a class="headerlink" href="#random-sampling" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">create_demo_df</span><span class="p">():</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;is_active&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-        <span class="s2">&quot;is_negative&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
-        <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-        <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">5.5</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">36.6</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">15.8</span><span class="p">],</span>
-        <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;100&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;city&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Tokyo&quot;</span><span class="p">,</span> <span class="s2">&quot;Osaka&quot;</span><span class="p">,</span> <span class="s2">&quot;Nagoya&quot;</span><span class="p">,</span> <span class="s2">&quot;Fukuoka&quot;</span><span class="p">,</span> <span class="s2">&quot;Sapporo&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;cost&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">]</span><span class="o">*</span><span class="mi">5</span>
-    <span class="p">}</span>
-    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">df</span>
-
-<span class="n">train</span> <span class="o">=</span> <span class="n">create_demo_df</span><span class="p">()</span>
-<span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">sampler</span><span class="p">)</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">)</span>
-
-<span class="n">sampler</span><span class="o">.</span><span class="n">reset_constraints</span><span class="p">()</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s1">&#39;multihot&#39;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s1">&#39;random&#39;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
-    <span class="s1">&#39;categories&#39;</span><span class="p">,</span>
-    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s1">&#39;category&#39;</span><span class="p">,</span> <span class="s1">&#39;city&#39;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
-    <span class="n">strength</span><span class="o">=</span><span class="s1">&#39;soft&#39;</span>
-<span class="p">)</span>
-
-<span class="n">result</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">train</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+<p><code class="docutils literal notranslate"><span class="pre">HyperGridSampler</span></code> additionally requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mlsampler<span class="w"> </span>scipy
 </pre></div>
 </div>
 </section>
+<section id="quick-start">
+<h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">RandomSampler.setup()</span></code> inspects your data and infers a type and range for every
+column. You then register constraints and draw samples.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mlsampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomSampler</span>
+
+<span class="n">train</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;is_active&quot;</span><span class="p">:</span>   <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;is_negative&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="s2">&quot;score&quot;</span><span class="p">:</span>       <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">5.5</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">36.6</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">15.8</span><span class="p">],</span>
+    <span class="s2">&quot;category&quot;</span><span class="p">:</span>    <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;100&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;city&quot;</span><span class="p">:</span>        <span class="p">[</span><span class="s2">&quot;Tokyo&quot;</span><span class="p">,</span> <span class="s2">&quot;Osaka&quot;</span><span class="p">,</span> <span class="s2">&quot;Nagoya&quot;</span><span class="p">,</span> <span class="s2">&quot;Fukuoka&quot;</span><span class="p">,</span> <span class="s2">&quot;Sapporo&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;cost&quot;</span><span class="p">:</span>        <span class="p">[</span><span class="mi">100</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span>
+<span class="p">})</span>
+
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;multihot&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">train</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Columns are addressed by <strong>integer position</strong>, not by name.</p>
+<p>Inferred types are available on the config:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">features</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;col </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A column becomes <code class="docutils literal notranslate"><span class="pre">constant</span></code> when every value is the same, <code class="docutils literal notranslate"><span class="pre">binary</span></code> when the values
+are a subset of <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1}</span></code>, <code class="docutils literal notranslate"><span class="pre">int</span></code> when every value is integral, <code class="docutils literal notranslate"><span class="pre">float</span></code> otherwise,
+and <code class="docutils literal notranslate"><span class="pre">categorical</span></code> when the values are not numeric at all.</p>
+</section>
+<section id="reproducibility">
+<h2>Reproducibility<a class="headerlink" href="#reproducibility" title="Link to this heading"></a></h2>
+<p>Passing <code class="docutils literal notranslate"><span class="pre">random_state</span></code> makes sampling repeatable:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">():</span>
+    <span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+
+<span class="p">(</span><span class="n">run</span><span class="p">()</span> <span class="o">==</span> <span class="n">run</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>   <span class="c1"># True</span>
+</pre></div>
+</div>
+<p>The guarantee is: <strong>equal</strong> <code class="docutils literal notranslate"><span class="pre">random_state</span></code> <strong>under equal</strong> <code class="docutils literal notranslate"><span class="pre">n_jobs</span></code> <strong>produces equal
+output.</strong> Three details are worth knowing.</p>
+<ul class="simple">
+<li><p>A seeded sampler restarts its stream on every <code class="docutils literal notranslate"><span class="pre">sample()</span></code> call, so calling
+<code class="docutils literal notranslate"><span class="pre">sample()</span></code> twice on one sampler returns the same rows. Use a different seed, or
+<code class="docutils literal notranslate"><span class="pre">random_state=None</span></code>, when you want fresh draws.</p></li>
+<li><p>Output is <strong>not</strong> guaranteed to match across different <code class="docutils literal notranslate"><span class="pre">n_jobs</span></code> values, because work
+is split into one chunk per worker and each chunk gets its own stream.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_jobs=-1</span></code> resolves to the number of cores on the machine, so it is <strong>not</strong>
+reproducible across machines with different core counts. Pass an explicit integer if
+you need that.</p></li>
+</ul>
+<p>You can also give a single constraint its own generator. This is honoured only when
+<code class="docutils literal notranslate"><span class="pre">n_jobs=1</span></code>; otherwise the constraint is copied into a worker process and a
+<code class="docutils literal notranslate"><span class="pre">ParallelRngWarning</span></code> is raised.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                        <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="constraints">
+<h2>Constraints<a class="headerlink" href="#constraints" title="Link to this heading"></a></h2>
+<p>Constraints come in two kinds, and both are registered with <code class="docutils literal notranslate"><span class="pre">set_constraints</span></code>:</p>
+<ul class="simple">
+<li><p><strong>Constructive</strong> constraints rewrite a row so that it complies.</p></li>
+<li><p><strong>Validation</strong> constraints (any callable returning a bool) can only accept or reject
+a row; rejected rows are redrawn, up to <code class="docutils literal notranslate"><span class="pre">max_retries</span></code>.</p></li>
+</ul>
+<p>Constructive constraints always run first, so a callable always sees a row that every
+other constraint has already shaped.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Every constraint takes <code class="docutils literal notranslate"><span class="pre">cols</span></code> (a list) <strong>except</strong> <code class="docutils literal notranslate"><span class="pre">step</span></code>, which takes <code class="docutils literal notranslate"><span class="pre">col</span></code>
+(a single integer).</p>
+</div>
+<section id="sum">
+<h3><code class="docutils literal notranslate"><span class="pre">sum</span></code><a class="headerlink" href="#sum" title="Link to this heading"></a></h3>
+<p>Distributes a total across the selected columns.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],</span>
+    <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">],</span>
+    <span class="s2">&quot;c&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">],</span>
+<span class="p">})</span>
+
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">out</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>     <span class="c1"># every row sums to 1.0</span>
+</pre></div>
+</div>
+<p>Accepts <code class="docutils literal notranslate"><span class="pre">method</span></code> (<code class="docutils literal notranslate"><span class="pre">'uniform'</span></code> or <code class="docutils literal notranslate"><span class="pre">'proportional'</span></code>), <code class="docutils literal notranslate"><span class="pre">alpha</span></code>, and <code class="docutils literal notranslate"><span class="pre">min_used</span></code> /
+<code class="docutils literal notranslate"><span class="pre">max_used</span></code> to limit how many of <code class="docutils literal notranslate"><span class="pre">cols</span></code> are used at once.</p>
+</section>
+<section id="sumint">
+<h3><code class="docutils literal notranslate"><span class="pre">sumint</span></code><a class="headerlink" href="#sumint" title="Link to this heading"></a></h3>
+<p>Like <code class="docutils literal notranslate"><span class="pre">sum</span></code>, but partitions an integer total into whole numbers.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sumint&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="c1"># every row sums to exactly 100, and every value is a whole number</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">sum_value</span></code> must be non-negative.</p>
+</section>
+<section id="multihot">
+<h3><code class="docutils literal notranslate"><span class="pre">multihot</span></code><a class="headerlink" href="#multihot" title="Link to this heading"></a></h3>
+<p>Sets exactly <code class="docutils literal notranslate"><span class="pre">n_hot</span></code> of the selected columns to 1 and the rest to 0.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;multihot&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">min_used</span></code> and <code class="docutils literal notranslate"><span class="pre">max_used</span></code> are not accepted here; both follow from <code class="docutils literal notranslate"><span class="pre">n_hot</span></code>.</p>
+</section>
+<section id="random">
+<h3><code class="docutils literal notranslate"><span class="pre">random</span></code><a class="headerlink" href="#random" title="Link to this heading"></a></h3>
+<p>Keeps a random subset of the columns and zeroes the others, leaving the kept values as
+sampled.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">max_used</span></code> must not exceed <code class="docutils literal notranslate"><span class="pre">len(cols)</span></code>.</p>
+</section>
+<section id="range">
+<h3><code class="docutils literal notranslate"><span class="pre">range</span></code><a class="headerlink" href="#range" title="Link to this heading"></a></h3>
+<p>Overrides the range inferred from the data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;range&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">40.0</span><span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)[:,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">out</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">out</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>    <span class="c1"># within [-10.0, 40.0]</span>
+</pre></div>
+</div>
+</section>
+<section id="step">
+<h3><code class="docutils literal notranslate"><span class="pre">step</span></code><a class="headerlink" href="#step" title="Link to this heading"></a></h3>
+<p>Snaps a column onto a discrete grid. <strong>This is the one constraint that takes</strong>
+<code class="docutils literal notranslate"><span class="pre">col</span></code> <strong>(singular).</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;step&quot;</span><span class="p">,</span> <span class="n">col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+<span class="c1"># values are drawn from 0.0, 0.25, 0.50, 0.75, 1.00</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">step</span></code> must be positive.</p>
+</section>
+<section id="stepsum">
+<h3><code class="docutils literal notranslate"><span class="pre">stepsum</span></code><a class="headerlink" href="#stepsum" title="Link to this heading"></a></h3>
+<p>Distributes a total in fixed increments, honouring a lower and upper bound per column.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
+    <span class="s2">&quot;stepsum&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">lows</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">highs</span><span class="o">=</span><span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="c1"># every row sums to 10, and no value exceeds 6</span>
+</pre></div>
+</div>
+<p>The target must be reachable: <code class="docutils literal notranslate"><span class="pre">sum(lows)</span></code> must not exceed <code class="docutils literal notranslate"><span class="pre">sum_value</span></code>, the residual
+must be a whole number of steps, and <code class="docutils literal notranslate"><span class="pre">sum(highs)</span></code> must be able to absorb it. Otherwise
+a <code class="docutils literal notranslate"><span class="pre">ConstraintViolationError</span></code> is raised — for example <code class="docutils literal notranslate"><span class="pre">sum_value=100</span></code> with
+<code class="docutils literal notranslate"><span class="pre">highs=[1,</span> <span class="pre">1,</span> <span class="pre">1]</span></code> cannot succeed.</p>
+</section>
+<section id="categories">
+<h3><code class="docutils literal notranslate"><span class="pre">categories</span></code><a class="headerlink" href="#categories" title="Link to this heading"></a></h3>
+<p>Restricts a group of columns to a list of allowed combinations.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">strength='soft'</span></code> the sampler picks one of the allowed combinations directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
+    <span class="s2">&quot;categories&quot;</span><span class="p">,</span>
+    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s2">&quot;category&quot;</span><span class="p">,</span> <span class="s2">&quot;city&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">strength</span><span class="o">=</span><span class="s2">&quot;soft&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>With <code class="docutils literal notranslate"><span class="pre">strength='hard'</span></code> the drawn values are <em>kept only if</em> they already form an
+allowed combination, and the row is otherwise rejected and redrawn:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
+    <span class="s2">&quot;categories&quot;</span><span class="p">,</span>
+    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="n">values</span><span class="o">=</span><span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;Tokyo&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;Osaka&quot;</span><span class="p">]],</span>
+    <span class="n">strength</span><span class="o">=</span><span class="s2">&quot;hard&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">'hard'</span></code> is rejection sampling, so its acceptance rate is roughly
+<code class="docutils literal notranslate"><span class="pre">len(values)</span> <span class="pre">/</span> <span class="pre">(total</span> <span class="pre">combinations)</span></code>. Raise <code class="docutils literal notranslate"><span class="pre">max_retries</span></code> when the allowed set is
+small relative to the space.</p>
+</section>
+<section id="callable-constraints">
+<h3>Callable constraints<a class="headerlink" href="#callable-constraints" title="Link to this heading"></a></h3>
+<p>Any callable taking a row works. <code class="docutils literal notranslate"><span class="pre">cols</span></code> <strong>is required.</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">80</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Returning a bool accepts or rejects the row. Returning a NumPy array instead writes
+that array into <code class="docutils literal notranslate"><span class="pre">cols</span></code>.</p>
+<p>Rows are <code class="docutils literal notranslate"><span class="pre">dtype=object</span></code> arrays, because one row mixes numbers with category strings.
+Cast before doing arithmetic:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">30.0</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="combining-constraints">
+<h2>Combining constraints<a class="headerlink" href="#combining-constraints" title="Link to this heading"></a></h2>
+<p>Constraints are applied in registration order.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;multihot&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
+    <span class="s2">&quot;categories&quot;</span><span class="p">,</span>
+    <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s2">&quot;category&quot;</span><span class="p">,</span> <span class="s2">&quot;city&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">strength</span><span class="o">=</span><span class="s2">&quot;soft&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Registering two constraints on the same column raises a <code class="docutils literal notranslate"><span class="pre">DuplicateColumnWarning</span></code>: the
+later one overwrites the earlier one’s work.</p>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">reset=True</span></code> to replace the registered set, or call <code class="docutils literal notranslate"><span class="pre">reset_constraints()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;range&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">low</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">len</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span>    <span class="c1"># 1</span>
+</pre></div>
+</div>
+<p>If no row satisfies every constraint within <code class="docutils literal notranslate"><span class="pre">max_retries</span></code>, a
+<code class="docutils literal notranslate"><span class="pre">ConstraintViolationError</span></code> reports which constraint rejected the last candidate.</p>
+</section>
 <section id="hypergrid-sampling">
-<h2>HyperGrid Sampling<a class="headerlink" href="#hypergrid-sampling" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span>
+<h2>HyperGrid sampling<a class="headerlink" href="#hypergrid-sampling" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">HyperGridSampler</span></code> covers the space evenly rather than satisfying constraints. Float
+columns are drawn by Latin Hypercube Sampling and scaled to their range; every other
+type is drawn uniformly from its own value set.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mlsampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">HyperGridSampler</span>
+
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">[</span>
         <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">],</span>
         <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">],</span>
         <span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;AB&quot;</span><span class="p">],</span>
         <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">],</span>
     <span class="p">],</span>
-    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;ratio1&#39;</span><span class="p">,</span> <span class="s1">&#39;ratio2&#39;</span><span class="p">,</span> <span class="s1">&#39;rank&#39;</span><span class="p">,</span> <span class="s1">&#39;isOk&#39;</span><span class="p">,</span> <span class="s1">&#39;bloodType&#39;</span><span class="p">]</span>
+    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ratio1&quot;</span><span class="p">,</span> <span class="s2">&quot;ratio2&quot;</span><span class="p">,</span> <span class="s2">&quot;rank&quot;</span><span class="p">,</span> <span class="s2">&quot;isOk&quot;</span><span class="p">,</span> <span class="s2">&quot;bloodType&quot;</span><span class="p">],</span>
 <span class="p">)</span>
 
 <span class="n">sampler</span> <span class="o">=</span> <span class="n">HyperGridSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">=== dtype check ===&quot;</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">features</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;col </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
 <span class="n">samples</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
 </pre></div>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">HyperGridSampler</span></code> <strong>does not support constraints.</strong> Calling <code class="docutils literal notranslate"><span class="pre">set_constraints()</span></code>
+on it raises <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code>. It also requires <code class="docutils literal notranslate"><span class="pre">scipy</span></code>.</p>
+</div>
 </section>
-<section id="notes">
-<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h2>
+<section id="parallel-execution">
+<h2>Parallel execution<a class="headerlink" href="#parallel-execution" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">n_jobs</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">1</span></code>. Parallelism is worth enabling only when constraints reject
+most candidates, because starting worker processes costs more than generating a row.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Measured speedup against serial, by rejection rate:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Rejection</p></th>
+<th class="head"><p>n=200</p></th>
+<th class="head"><p>n=1000</p></th>
+<th class="head"><p>n=5000</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0%</p></td>
+<td><p>0.00x</p></td>
+<td><p>0.22x</p></td>
+<td><p>0.69x</p></td>
+</tr>
+<tr class="row-odd"><td><p>80%</p></td>
+<td><p>0.30x</p></td>
+<td><p>0.67x</p></td>
+<td><p>1.72x</p></td>
+</tr>
+<tr class="row-even"><td><p>95%</p></td>
+<td><p>1.21x</p></td>
+<td><p>2.15x</p></td>
+<td><p>4.25x</p></td>
+</tr>
+</tbody>
+</table>
+<p>Below 100 requested rows the serial path is used regardless of <code class="docutils literal notranslate"><span class="pre">n_jobs</span></code>.</p>
+</section>
+<section id="choosing-a-sampler">
+<h2>Choosing a sampler<a class="headerlink" href="#choosing-a-sampler" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">RandomSampler</span></code> is recommended when:
-- You have multiple constraints to satisfy simultaneously
-- The relationships between variables are complex or hard to express analytically</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">HybridSampler</span></code> is recommended when:</p>
-<ul>
-<li><p>You want better coverage of continuous feature space</p></li>
-<li><p>You are performing design of experiments (DoE)</p></li>
-</ul>
-</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RandomSampler</span></code> — when you need several constraints satisfied at once, or the
+relationships between variables are hard to express analytically.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">HyperGridSampler</span></code> — when you want even coverage of a continuous space, such as for
+design of experiments (DoE), and you need no constraints.</p></li>
 </ul>
 </section>
 </section>
