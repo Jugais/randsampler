@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlsampler"
-version = "0.3.4"
+version = "0.4.0"
 description = "Flexible constrained random sampler for doe sampling or reverse analysis in machine learning"
 authors = [
   { name="Jugai O" }
@@ -23,3 +23,7 @@ where = ["src"]
 
 [project.optional-dependencies]
 docs = ["sphinx", "sphinx-rtd-theme", "scipy"]
+dev = ["pytest", "scipy", "pyright"]  # [claude fixed] test infra; pyright verifies the set_constraints overloads
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

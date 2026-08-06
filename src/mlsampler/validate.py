@@ -15,18 +15,29 @@ def validate_cols(cols):
         if not isinstance(c, (int, np.integer)) or c < 0:
             raise ConstraintValidationError("Column indices must be non-negative integers")
         
-def validate_usage(min_used: int, max_used: Optional[int]):
+def validate_usage(min_used: int, max_used: Optional[int], n_cols: Optional[int] = None):
     if min_used < 0:
         raise ConstraintValidationError("min_used must be non-negative")
-        
+
     if max_used is None:
         raise ConstraintValidationError("max_used must be specified")
-    
+
     if max_used is not None and max_used < 0:
         raise ConstraintValidationError("max_used must be non-negative")
-    
+
     if min_used > max_used:
         raise ConstraintValidationError("min_used must be <= max_used")
+
+    if n_cols is not None and max_used > n_cols:
+        raise ConstraintValidationError(
+            f"max_used ({max_used}) must be <= the number of columns ({n_cols})"
+        )
+
+def validate_choice(value, allowed: ArrayLike, name: str):
+    if value not in allowed:
+        raise ConstraintValidationError(
+            f"{name} must be one of {sorted(allowed)}, got {value!r}"
+        )
     
 def validate_values(value: Numeric):
     if not isinstance(value, Numeric):
@@ -35,16 +46,16 @@ def validate_values(value: Numeric):
     if value < 0:
         warnings.warn("Value should be non-negative", ConstraintWarning)
         
-def validate_range(low: Numeric, high: Numeric, step: Numeric = 0):
+def validate_range(low: Numeric, high: Numeric, step: Optional[Numeric] = None):
     if not isinstance(low, Numeric):
-        raise ConstraintTypeError("low must be a numeric")
-    
+        raise ConstraintValidationError("low must be a numeric")
+
     if not isinstance(high, Numeric):
-        raise ConstraintTypeError("high must be a numeric")
-    
+        raise ConstraintValidationError("high must be a numeric")
+
     if low > high:
         raise ConstraintValidationError("low must be <= high")
-    
-    if step < 0:
-        raise ConstraintValidationError("step must be non-negative")
+
+    if step is not None and step <= 0:
+        raise ConstraintValidationError("step must be positive")
         

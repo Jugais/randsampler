@@ -1,5 +1,5 @@
 class ConstraintError(ValueError):
-    """Custom exception for constraint violations"""
+    """Base class for every constraint error."""
     pass
 
 class ConstraintTypeError(ConstraintError):
@@ -20,4 +20,8 @@ class ConstraintWarning(UserWarning):
 
 class DuplicateColumnWarning(ConstraintWarning):
     """Column is used in multiple constraints."""
+    pass
+
+class ParallelRngWarning(ConstraintWarning):
+    """A generator given to a constraint is ignored when n_jobs != 1."""
     pass

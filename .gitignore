@@ -9,3 +9,5 @@ dist/
 *.csv
 .DS_Store/
 .vscode/
+*.md
+!README.md

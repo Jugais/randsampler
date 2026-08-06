@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Self
 from abc import ABC, abstractmethod
 from .constraints import Constraints
 
@@ -23,57 +23,58 @@ class DtypeMeta:
 @dataclass
 class SamplerConfig:
     features: list[FeatureMeta]
-    batch_size: int = 1000
     random_state: Optional[int] = None
-    n_jobs: int = -1
+    n_jobs: int = 1
     max_retries: int = 1000
 
 
 class BaseSampler(ABC):
     """
-    Base class for constraint-based samplers.
+    Base class for samplers.
 
-    This class provides common functionality for sampling based on feature metadata
-    and registered constraints. It is designed to be extended by specific sampler implementations.
+    Provides the feature-metadata setup shared by every sampler. Constraint support is
+    not part of the base — `set_constraints` and `apply_constraints` raise
+    NotImplementedError unless a subclass overrides them.
 
     Parameters
     ----------
     config : SamplerConfig
         Configuration object containing feature metadata and sampling settings.
     """
-    constraints: list[Constraints]
 
     def __init__(self, config: SamplerConfig) -> None:
         self.config = config
-        self._constraints = []
+        self._constraints: list[Constraints] = []
         
     @classmethod
     def setup(
             cls,
             X: np.ndarray,
+            *,
             random_state: Optional[int] = None,
-            n_jobs: int = -1,
+            n_jobs: int = 1,
             max_retries: int = 1000,
-        ):
+        ) -> Self:
         """
-        Create a RandomSampler from provided training data.
+        Create a sampler from provided training data.
 
         Parameters
         ----------
         X : np.ndarray
             Input dataset used to infer feature ranges and types.
-        batch_size : int, default=1000
-            Number of samples generated per batch.
         random_state : int or None, default=None
             Seed for reproducible sampling.
-        n_jobs : int, default=-1
-            Number of parallel jobs.
+        n_jobs : int, default=1
+            Number of parallel jobs. 
+            Parallelism only pays off when constraints reject most candidates.
+            It is slower than serial otherwise.
         max_retries : int, default=1000
             Maximum retries for satisfying constraints.
 
         Returns
         -------
-        RandomSampler
+        BaseSampler
+            An instance of the class `setup` was called on.
         """
 
         features = []
@@ -130,10 +131,15 @@ class BaseSampler(ABC):
         return cls(config)
     
     def set_constraints(self, constraint_fn: str, **kwargs) -> None:
-        pass
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support constraints. "
+            "Use RandomSampler for constraint-based sampling."
+        )
 
     def apply_constraints(self, row: np.ndarray) -> Optional[np.ndarray]:
-        pass
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support constraints."
+        )
 
     @abstractmethod
     def sample(self, n_samples: int) -> np.ndarray:
@@ -144,10 +150,10 @@ class BaseSampler(ABC):
         return len(self.config.features)
     
     def __len__(self):
-        return len(self.constraints)
+        return len(self._constraints)
     
     def __getitem__(self, key):
-        return self.constraints[key]
+        return self._constraints[key]
 
     def __repr__(self):
         return f"<{self.__class__.__name__} with {len(self)} constraints>"
@@ -156,5 +162,5 @@ class BaseSampler(ABC):
         return iter(self._constraints)
     
     def __bool__(self):
-        return bool(self.constraints)
+        return bool(self._constraints)
     

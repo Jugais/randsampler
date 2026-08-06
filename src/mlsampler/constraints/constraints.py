@@ -3,29 +3,35 @@ from numpy.random import Generator
 from .base import Constraints, SelectConstraint
 from .. import validate as v
 from ..types import Numeric, ArrayLike, Bool, ConstraintFn
-from typing import Optional, Callable
-from ..errors import ConstraintViolationError, ConstraintError, ConstraintTypeError
+from typing import Optional
+from ..errors import (
+    ConstraintViolationError,
+    ConstraintError,
+    ConstraintTypeError,
+    ConstraintValidationError
+)
+
 
 class MultihotConstraint(SelectConstraint):
     def __init__(
             self, 
-            cols: list[int], 
+            cols: list[int],
             n_hot: int = 1,
-            **kwargs
+            rng: Optional[np.random.Generator] = None,
         ):
         super().__init__(
-            cols, 
-            min_used=n_hot, 
-            max_used=n_hot, 
-            **kwargs
+            cols,
+            min_used=n_hot,
+            max_used=n_hot,
+            rng=rng
         )
         self.n_hot = n_hot
 
     def _constrain_selected(
-            self, 
-            row: np.ndarray, 
+            self,
+            row: np.ndarray,
             selected: np.ndarray,
-            rng: Optional[np.random.Generator] = None,
+            rng: np.random.Generator,  # passed by the caller
         ) -> np.ndarray:
         row[selected] = 1
         return row
@@ -33,19 +39,26 @@ class MultihotConstraint(SelectConstraint):
 class RandomSelectConstraint(SelectConstraint):
     def __init__(
             self, 
-            cols: list[int], 
+            cols: list[int],
+            min_used: int = 1,
+            max_used: Optional[int] = None,
             rng: Optional[np.random.Generator] = None,
-            **kwargs
         ):
-        super().__init__(cols, reset_cols=False, **kwargs)
-        self.rng = rng
-    
+        super().__init__(
+            cols, 
+            min_used=min_used,
+            max_used=max_used,
+            reset_cols=False,
+            rng=rng
+        )
+
     def _constrain_selected(
-            self, 
-            row: np.ndarray, 
-            selected: np.ndarray
+            self,
+            row: np.ndarray,
+            selected: np.ndarray,
+            rng: np.random.Generator  # unified signature
         ) -> np.ndarray:
-        
+
         not_selected = np.setdiff1d(self.cols, selected)
         row[not_selected] = 0
         return row
@@ -54,44 +67,41 @@ class SumConstraint(SelectConstraint):
     def __init__(self, 
             cols: list[int], 
             sum_value: Numeric = 1,
-            method: str = 'dirichlet',
+            method: str = 'uniform',
             alpha: Optional[np.ndarray] = None,
+            min_used: int = 1,
+            max_used: Optional[int] = None,
             rng: Optional[np.random.Generator] = None,
-            **kwargs
         ):
         v.validate_values(sum_value)
+        v.validate_choice(method, ('uniform', 'proportional'), 'method')
 
-        super().__init__(cols, **kwargs)
+        super().__init__(
+            cols, 
+            min_used=min_used,
+            max_used=max_used,
+            rng=rng
+        )
         self.sum_value = sum_value
         self.method = method
         self.alpha = alpha
-        self.rng = self._rng(rng)
 
-    def _constrain_selected(self, 
-            row: np.ndarray, 
-            selected: np.ndarray
+    def _constrain_selected(self,
+            row: np.ndarray,
+            selected: np.ndarray,
+            rng: np.random.Generator
         ) -> np.ndarray:
-        """
-        Args:
-            row (np.ndarray): numpy array representing the row to be modified
-            selected (np.ndarray): numpy array of selected column indices
-            sum_value (float, optional): The desired sum of the selected columns. Defaults to 1.
-            alpha (Optional[np.ndarray], optional): The concentration parameters for the Dirichlet distribution. Defaults to None.
-            rng (Optional[np.random.Generator], optional): The random number generator. Defaults to None.
-
-        Returns:
-            np.ndarray: The modified row
-        """
+        """Distribute `sum_value` across the selected columns."""
         
-        if self.method == 'dirichlet':
+        if self.method == 'uniform':
             if self.alpha is None:
                 alpha = np.ones(len(selected))
             else:
                 alpha = self.alpha
 
-            weights = self.rng.dirichlet(alpha)
+            weights = rng.dirichlet(alpha)
             row[selected] = weights * self.sum_value
-        elif self.method == 'simple':
+        elif self.method == 'proportional':
             row[selected] = row / np.sum(row) * self.sum_value
         else:
             raise ConstraintTypeError(f'Method: {self.method} not implemented')
@@ -99,18 +109,36 @@ class SumConstraint(SelectConstraint):
         return row
 
 class SumIntConstraint(SumConstraint):
-    def __init__(self, cols: list[int], sum_value: int = 100, rng: Generator | None = None, **kwargs):
+    def __init__(
+            self,
+            cols: list[int],
+            sum_value: int = 100,
+            min_used: int = 1,
+            max_used: Optional[int] = None,
+            rng: Generator | None = None,
+        ):
         if sum_value < 0:
-            raise TypeError("sum_value must be a non-negative integer")
-        super().__init__(cols, sum_value=sum_value, rng=rng, **kwargs)
+            raise ConstraintValidationError("sum_value must be a non-negative integer")
+        super().__init__(
+            cols,
+            sum_value=sum_value,
+            min_used=min_used,
+            max_used=max_used,
+            rng=rng
+        )
 
-    def _constrain_selected(self, row: np.ndarray, selected: np.ndarray) -> np.ndarray:
+    def _constrain_selected(
+            self,
+            row: np.ndarray,
+            selected: np.ndarray,
+            rng: np.random.Generator
+        ) -> np.ndarray:
         k = len(selected)
         if k == 1:
             row[selected[0]] = self.sum_value
             return row
 
-        cuts = np.sort(self.rng.choice((self.sum_value + k - 1), k - 1, replace=False))
+        cuts = np.sort(rng.choice((self.sum_value + k - 1), k - 1, replace=False))
         parts = np.diff(
                     np.concatenate((
                         np.array([-1], dtype=cuts.dtype),
@@ -123,8 +151,15 @@ class SumIntConstraint(SumConstraint):
         return row
 
 class CategoriesConstraint(Constraints):
-    def __init__(self, cols: list[int], values: list[list], strength:str = "hard", **kwargs):
-        super().__init__(cols, **kwargs)
+    def __init__(
+            self,
+            cols: list[int],
+            values: list[list],
+            strength:str = "hard",
+            rng: Optional[np.random.Generator] = None,
+        ):
+        v.validate_choice(strength, ('hard', 'soft'), 'strength')
+        super().__init__(cols, rng)
         self.strength = strength
         val_tuples = [tuple(v) for v in values]
         if len(set(val_tuples)) != len(values):
@@ -136,9 +171,9 @@ class CategoriesConstraint(Constraints):
             self, 
             row: np.ndarray, 
             rng: Optional[np.random.Generator] = None,
-        ) -> np.ndarray:
+        ) -> Optional[np.ndarray]:
         rng = self._rng(rng)
-        
+
         current_row = row[self.cols]
         mask = np.ones(len(self.values), dtype=bool)
         if self.strength == "hard":
@@ -152,7 +187,7 @@ class CategoriesConstraint(Constraints):
         
         valid_patterns = self.values[mask]
         if len(valid_patterns) == 0:
-            raise ConstraintViolationError("No patterns found in categories.")
+            return None
 
         idx = rng.integers(len(valid_patterns))
         selected_pattern = valid_patterns[idx]
@@ -161,22 +196,41 @@ class CategoriesConstraint(Constraints):
         return row
     
 class RangeConstraint(Constraints):
-    def __init__(self, cols: list[int], low: float = 0, high: float = 1, **kwargs):
-        super().__init__(cols, **kwargs)
+    def __init__(
+            self,
+            cols: list[int],
+            low: float = 0,
+            high: float = 1,
+            rng: Optional[np.random.Generator] = None,
+        ):
+        super().__init__(cols, rng)
         self.low = low
         self.high = high
         v.validate_range(low, high)
 
-    def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+    def _constrain(
+            self, 
+            row: np.ndarray, 
+            rng: Optional[np.random.Generator] = None
+        ) -> np.ndarray:
         # No need to reset cols here
         rng = self._rng(rng)
         row[self.cols] = rng.uniform(self.low, self.high, size=len(self.cols))
         return row
 
 class StepConstraint(Constraints):
-    def __init__(self, col:int, step: float, low: float, high: float,  **kwargs):
-        super().__init__(cols=[col], **kwargs)
+    def __init__(
+            self,
+            col:int,
+            step: float,
+            low: float,
+            high: float,
+            rng: Optional[np.random.Generator] = None,
+        ):
+        super().__init__(cols=[col], rng=rng)
         self.col = col
+
+        v.validate_range(low, high, step)
 
         n_steps = int(np.floor((high - low) / step))
         self.values = low + np.arange(n_steps + 1) * step
@@ -184,8 +238,6 @@ class StepConstraint(Constraints):
         self.low = low
         self.high = high
         self.step = step
-
-        v.validate_range(low, high, step)
 
     def _constrain(
             self,
@@ -208,19 +260,27 @@ class SumStepConstraint(StepConstraint):
             sum_value: float, 
             lows: Optional[ArrayLike] = None, 
             highs: Optional[ArrayLike] = None, 
-            step: float = 1, 
-            **kwargs
+            step: float = 1,
+            rng: Optional[np.random.Generator] = None,
         ):
         # Initialize parent with the first column's range
-        lows = lows if lows is not None else np.zeros(len(cols))
-        highs = highs if highs is not None else np.ones(len(cols))*100
-        
+        if lows is not None:
+            lows = lows 
+        else:
+            lows = np.zeros(len(cols))
+
+        if highs is not None:
+            highs = highs
+        else:
+            highs = np.ones(len(cols))*100
+
+        #　parent col/low/high stay internal
         super().__init__(
-            col=cols[0], 
-            low=lows[0], 
-            high=highs[0], 
-            step=step, 
-            **kwargs
+            col=cols[0],
+            low=lows[0],
+            high=highs[0],
+            step=step,
+            rng=rng
         )
         self.cols = cols
 
@@ -229,7 +289,11 @@ class SumStepConstraint(StepConstraint):
         self.sum_value = sum_value
         self.step = step
 
-    def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None) -> np.ndarray:
+    def _constrain(
+            self,
+            row: np.ndarray,
+            rng: Optional[np.random.Generator] = None
+        ) -> np.ndarray:
         rng = self._rng(rng)
         
         current_values = self.lows.copy().astype(float)
@@ -238,10 +302,14 @@ class SumStepConstraint(StepConstraint):
         
         # Basic validation for feasibility
         if residual < -1e-9:
-            raise ConstraintViolationError(f"Sum of lows ({current_sum}) exceeds sum_value ({self.sum_value}).")
+            raise ConstraintViolationError(
+                f"Sum of lows ({current_sum}) exceeds sum_value ({self.sum_value})."
+            )
         
         if not np.isclose(residual % self.step, 0) and not np.isclose(residual % self.step, self.step):
-            raise ConstraintViolationError(f"Residual ({residual}) is not a multiple of step ({self.step}).")
+            raise ConstraintViolationError(
+                f"Residual ({residual}) is not a multiple of step ({self.step})."
+            )
 
         # Randomly distribute the residual in 'step' increments
         num_steps = int(round(residual / self.step))

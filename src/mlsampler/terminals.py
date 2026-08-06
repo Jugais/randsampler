@@ -1,5 +1,4 @@
 import sys
-import time
 import threading
 from contextlib import contextmanager
 
@@ -9,7 +8,7 @@ def spinner(stop_event):
     while not stop_event.is_set():
         sys.stdout.write(f"\rsampling... {symbols[i % len(symbols)]}")
         sys.stdout.flush()
-        time.sleep(0.1)
+        stop_event.wait(0.1)  # returns the moment set() is called; sleep was uninterruptible
         i += 1
 
     sys.stdout.write("\rsampling completed    \n")

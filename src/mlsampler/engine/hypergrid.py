@@ -1,7 +1,6 @@
 import numpy as np
 from typing import Optional
 from ..base import BaseSampler, DtypeMeta as dm
-from ..errors import ConstraintViolationError
 from ..terminals import spinning
 try:
     from scipy.stats import qmc
@@ -10,13 +9,11 @@ except:
 
 class HyperGridSampler(BaseSampler):
     """
-    Hybrid grid and LHS-based constraint sampler.
+    Grid and LHS-based sampler for even coverage of the feature space.
 
-    This sampler generates samples based on feature metadata inferred
-    from training data. Continuous features are sampled using Latin
-    Hypercube Sampling (LHS), while discrete features (e.g., integer,
-    binary, categorical) are sampled using grid random selection
-    over their respective value spaces.
+    This sampler generates samples based on feature metadata
+    inferred from training data. Float features are drawn by Latin
+    Hypercube Sampling, every other dtype from a uniform grid.
 
     Parameters
     ----------
@@ -25,25 +22,14 @@ class HyperGridSampler(BaseSampler):
 
     Notes
     -----
-    Sampling strategy depends on feature data types:
+    This sampler does not support constraints. ``set_constraints`` raises
+    NotImplementedError; use ``RandomSampler`` for constraint-based sampling.
 
-    - Float features:
-        Sampled using Latin Hypercube Sampling (LHS), then scaled to
-        their respective [low, high] ranges.
-
-    - Integer features:
-        Sampled uniformly from the inclusive range [low, high].
-
-    - Binary features:
-        Sampled uniformly from {0, 1}.
-
-    - Categorical features:
-        Sampled uniformly from the provided category list.
-
-    - Constant features:
-        Always return the same fixed value.
+    ``scipy`` is required. Its ImportError is deferred until sampling starts.
     """
-    
+
+    __qualname__ = "HyperGridSampler"
+
     def __init__(self, config):
         super().__init__(config)
         self.rng = np.random.default_rng(config.random_state)
@@ -81,7 +67,7 @@ class HyperGridSampler(BaseSampler):
             elif f.dtype == dm.const:
                 vals = np.array([f.low])
             else:
-                raise ConstraintViolationError(f"Unsupported dtype: {f.dtype}")
+                raise ValueError(f"Unsupported dtype: {f.dtype}")
 
             sampled = self.rng.choice(vals, size=n_samples)
             cols.append(sampled)
@@ -89,6 +75,8 @@ class HyperGridSampler(BaseSampler):
         return np.column_stack(cols) if cols else np.empty((n_samples, 0))
 
     def _sample(self, n_samples: int) -> np.ndarray:
+        self.rng = np.random.default_rng(self.config.random_state)
+
         float_feats = [f for f in self.config.features if f.dtype == dm.float]
         discrete_feats = [f for f in self.config.features if f.dtype != dm.float]
 

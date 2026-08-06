@@ -4,15 +4,24 @@ from .. import validate as v
 import numpy as np
 
 class Constraints(ABC):
-    def __init__(self, cols: list[int]):
+    def __init__(self, cols: list[int], rng: Optional[np.random.Generator] = None):
         v.validate_cols(cols)
         self.cols = cols
+        self.rng = rng
+        self._fallback_rng = None  # unseeded generator
 
     def _rng(
-            self, 
+            self,
             rng: Optional[np.random.Generator] = None
         ) -> np.random.Generator:
-        return rng if rng is not None else np.random.default_rng()
+        # priority: constructor rng > sampler rng > one unseeded fallback
+        if self.rng is not None:
+            return self.rng
+        if rng is not None:
+            return rng
+        if self._fallback_rng is None:
+            self._fallback_rng = np.random.default_rng()
+        return self._fallback_rng
     
     def __call__(self, row: np.ndarray, rng: Optional[np.random.Generator] = None):
         return self._constrain(row, rng)
@@ -23,25 +32,30 @@ class Constraints(ABC):
         return f"{self.__class__.__name__}(cols={self.cols})"
     
     @abstractmethod
-    def _constrain(self, row: np.ndarray, rng: Optional[np.random.Generator] = None):
+    def _constrain(
+            self,
+            row: np.ndarray,
+            rng: Optional[np.random.Generator] = None
+        ) -> Optional[np.ndarray]:
+        """Return the mutated row, or None to reject it."""
         pass
 
 
 class SelectConstraint(Constraints):
     def __init__(
-            self, 
-            cols: list[int], 
-            min_used: int = 1, 
+            self,
+            cols: list[int],
+            min_used: int = 1,
             max_used: Optional[int] = None,
             reset_cols: bool = True,
-            **kwargs
+            rng: Optional[np.random.Generator] = None,
         ):
-        
+
         if max_used is None:
             max_used = len(cols)
-        v.validate_usage(min_used, max_used)
+        v.validate_usage(min_used, max_used, len(cols))
 
-        super().__init__(cols)
+        super().__init__(cols, rng)
         self.min_used = min_used
         self.max_used = max_used 
         self.reset_cols = reset_cols
@@ -50,21 +64,26 @@ class SelectConstraint(Constraints):
         row[cols] = value
         return row
     
-    def _constrain(self, 
-            row: np.ndarray, 
+    def _constrain(
+            self,
+            row: np.ndarray,
             rng: Optional[np.random.Generator] = None
         ) -> np.ndarray:
         rng = self._rng(rng)
-        self.rng = rng
         if self.reset_cols:
             row = self._reset_cols(row, self.cols)
         used = rng.integers(self.min_used, self.max_used + 1)
         selected = rng.choice(self.cols, size=used, replace=False)
 
-        return self._constrain_selected(row, selected)
+        return self._constrain_selected(row, selected, rng)
 
     @abstractmethod
-    def _constrain_selected(self, row: np.ndarray, selected: np.ndarray) -> np.ndarray:
+    def _constrain_selected(
+            self,
+            row: np.ndarray,
+            selected: np.ndarray,
+            rng: np.random.Generator
+        ) -> np.ndarray:
         pass
 
 
