@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, Self
 from abc import ABC, abstractmethod
 from .constraints import Constraints
+from .types import ColumnRef, SampleOutput, SetupInput, DataFrameLike
 
 @dataclass(frozen=True)
 class FeatureMeta:
@@ -11,6 +12,7 @@ class FeatureMeta:
     high: Optional[float] = None
     dtype: str = "float"  # "float", "int", "binary", "categorical"
     categories:Optional[list] = None
+    name: Optional[ColumnRef] = None
 
 @dataclass(frozen=True)
 class DtypeMeta:
@@ -20,12 +22,24 @@ class DtypeMeta:
     cat:str = "categorical"
     const:str = "constant"
 
+def _column(f: FeatureMeta, values: np.ndarray) -> np.ndarray:
+    if f.dtype == DtypeMeta.cat or (f.dtype == DtypeMeta.const and f.low is None):
+        return values.astype(str)
+
+    numeric = values.astype(float)
+    if f.dtype in (DtypeMeta.integer, DtypeMeta.bin):
+        whole = numeric.astype(np.int64)
+        if np.array_equal(numeric, whole):
+            return whole
+    return numeric
+
 @dataclass
 class SamplerConfig:
     features: list[FeatureMeta]
     random_state: Optional[int] = None
     n_jobs: int = 1
     max_retries: int = 1000
+    frame: Optional[str] = None
 
 
 class BaseSampler(ABC):
@@ -45,11 +59,37 @@ class BaseSampler(ABC):
     def __init__(self, config: SamplerConfig) -> None:
         self.config = config
         self._constraints: list[Constraints] = []
-        
+
+    @staticmethod
+    def _read_input(X: SetupInput) -> tuple[np.ndarray, list, Optional[str]]:
+        """Split an input into its array, its column labels, and its library."""
+        if not isinstance(X, DataFrameLike):
+            return X, list(range(X.shape[1])), None
+
+        labels = list(X.columns)
+        positions = list(range(len(labels)))
+
+        if labels == positions:
+            labels = positions
+        elif not all(isinstance(label, str) for label in labels):
+            raise ValueError(
+                f"Column labels must be all strings or exactly 0-{len(labels) - 1}, "
+                f"got {labels}. Rename the columns, or pass the array itself to "
+                "address columns by position."
+            )
+        elif len(set(labels)) != len(labels):
+            duplicated = sorted({label for label in labels if labels.count(label) > 1})
+            raise ValueError(
+                f"Duplicate column names {duplicated}: a name cannot identify one column. "
+                "Rename them, or pass the array itself to address columns by position."
+            )
+
+        return X.to_numpy(), labels, type(X).__module__.split(".")[0]
+
     @classmethod
     def setup(
             cls,
-            X: np.ndarray,
+            X: SetupInput,
             *,
             random_state: Optional[int] = None,
             n_jobs: int = 1,
@@ -60,8 +100,11 @@ class BaseSampler(ABC):
 
         Parameters
         ----------
-        X : np.ndarray
-            Input dataset used to infer feature ranges and types.
+        X : np.ndarray or DataFrame
+            Input dataset used to infer feature ranges and types. A pandas or polars
+            DataFrame is accepted; its column names become the feature names, and
+            `sample` returns the same type. Labels must be all strings or exactly
+            0-(n_features - 1).
         random_state : int or None, default=None
             Seed for reproducible sampling.
         n_jobs : int, default=1
@@ -76,6 +119,8 @@ class BaseSampler(ABC):
         BaseSampler
             An instance of the class `setup` was called on.
         """
+
+        X, feature_names, frame = cls._read_input(X)
 
         features = []
 
@@ -117,7 +162,8 @@ class BaseSampler(ABC):
                     low=low,
                     high=high,
                     dtype=dtype,
-                    categories=categories
+                    categories=categories,
+                    name=feature_names[col],
                 )
             )
 
@@ -126,6 +172,7 @@ class BaseSampler(ABC):
             random_state = random_state,
             n_jobs = n_jobs,
             max_retries = max_retries,
+            frame = frame,
         )
 
         return cls(config)
@@ -142,12 +189,35 @@ class BaseSampler(ABC):
         )
 
     @abstractmethod
-    def sample(self, n_samples: int) -> np.ndarray:
+    def sample(self, n_samples: int) -> SampleOutput:  # [claude fixed]
         pass
+
+    def _to_frame(self, samples: np.ndarray) -> SampleOutput:
+        """Rebuild the container `setup` was given, restoring per-column dtypes."""
+        if self.config.frame is None:
+            return samples
+
+        columns = [_column(f, samples[:, i]) for i, f in enumerate(self.config.features)]
+
+        if self.config.frame == "polars":
+            import polars as pl
+
+            return pl.DataFrame([
+                pl.Series(str(f.name), values)
+                for f, values in zip(self.config.features, columns)
+            ])
+
+        import pandas as pd
+
+        return pd.DataFrame(dict(zip(self.feature_names, columns)))
 
     @property
     def n_features(self) -> int:
         return len(self.config.features)
+
+    @property
+    def feature_names(self) -> list:
+        return [f.name for f in self.config.features]
     
     def __len__(self):
         return len(self._constraints)

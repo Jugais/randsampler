@@ -10,10 +10,11 @@ from ..errors import (
     ParallelRngWarning
 )
 
-from typing import Optional, overload, Literal
-from ..types import Numeric, ArrayLike, ConstraintFn
+from typing import Optional, overload, Literal, Any
+from ..types import Numeric, ArrayLike, ConstraintFn, ColumnRef, SampleOutput
 from types import MappingProxyType
 from collections import defaultdict
+from collections.abc import Sequence
 from joblib import Parallel, delayed, effective_n_jobs
 
 import warnings
@@ -90,7 +91,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["sum"],
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
             sum_value: Numeric = ...,
             method: str = ...,
             alpha: Optional[np.ndarray] = ...,
@@ -105,7 +106,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["sumint"],
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
             sum_value: int = ...,
             min_used: int = ...,
             max_used: Optional[int] = ...,
@@ -118,7 +119,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["multihot"],
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
             n_hot: int = ...,
             rng: Optional[np.random.Generator] = ...,
         ) -> None: ...
@@ -129,7 +130,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["random"],
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
             min_used: int = ...,
             max_used: Optional[int] = ...,
             rng: Optional[np.random.Generator] = ...,
@@ -141,7 +142,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["range"],
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
             low: float = ...,
             high: float = ...,
             rng: Optional[np.random.Generator] = ...,
@@ -153,8 +154,8 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["categories"],
             reset: bool = ...,
             *,
-            cols: list[int],
-            values: list[list],
+            cols: Sequence[ColumnRef],
+            values: Sequence[Any],
             strength: str = ...,
             rng: Optional[np.random.Generator] = ...,
         ) -> None: ...
@@ -165,7 +166,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["step"],
             reset: bool = ...,
             *,
-            col: int,
+            col: ColumnRef,
             step: float,
             low: float,
             high: float,
@@ -178,7 +179,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: Literal["stepsum"],
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
             sum_value: float,
             lows: Optional[ArrayLike] = ...,
             highs: Optional[ArrayLike] = ...,
@@ -192,7 +193,7 @@ class RandomSampler(BaseSampler):
             constraint_fn: ConstraintFn,
             reset: bool = ...,
             *,
-            cols: list[int],
+            cols: Sequence[ColumnRef],
         ) -> None: ...
 
     def set_constraints(
@@ -252,6 +253,12 @@ class RandomSampler(BaseSampler):
             self._constraints = []
             self._funcs = []
 
+        cols = kwargs.get("cols")
+        if isinstance(cols, ArrayLike):
+            kwargs["cols"] = [self._resolve(ref) for ref in cols]
+        if "col" in kwargs:
+            kwargs["col"] = self._resolve(kwargs["col"])
+
         if callable(constraint_fn):
             self._constraints.append(self._build("callable", FunctionConstraint, fn=constraint_fn, **kwargs))
             self._funcs.append(self._build("callable", FunctionConstraint, fn=constraint_fn, **kwargs))
@@ -263,11 +270,36 @@ class RandomSampler(BaseSampler):
                 f"Valid types: {sorted(self._registry)} or a callable."
             )
 
+    # a str is a name, an int is always a position
+    def _resolve(self, ref: ColumnRef) -> ColumnRef:
+        if not isinstance(ref, str):
+            return ref
+
+        names = self.feature_names
+        if ref in names:
+            return names.index(ref)
+
+        if all(isinstance(name, int) for name in names):
+            raise ConstraintValidationError(
+                f"Cannot look up column {ref!r}: this sampler has no column names "
+                f"(it was set up without them). Use a position in 0-{self.n_features - 1}."
+            )
+        raise ConstraintValidationError(
+            f"Unknown column {ref!r}. Valid names: {names}"
+        )
+
+    # address columns the way the user did. `name` holds the position
+    # when the input carried no names, so this needs no branch on that
+    def _labels(self, cols) -> list:
+        features = self.config.features
+        return [features[c].name if c < len(features) else c for c in cols]
+
     def _name(self, constraint) -> str:
+        cols = self._labels(getattr(constraint, "cols", []))
         for key, cls in self._registry.items():
             if type(constraint) is cls:
-                return f"{key!r} on cols={getattr(constraint, 'cols', [])}"
-        return f"callable on cols={getattr(constraint, 'cols', [])}"
+                return f"{key!r} on cols={cols}"
+        return f"callable on cols={cols}"
 
     def _build(self, constraint_fn: str, cls, **kwargs):
         try:
@@ -372,19 +404,19 @@ class RandomSampler(BaseSampler):
 
                 if invalid:
                     raise ConstraintViolationError(
-                        f"{invalid} cannot be applied to categorical column: {col}"
+                        f"{invalid} cannot be applied to categorical column: {meta.name!r}"
                     )
 
             if meta.dtype == dm.const:
                 if len(ids) > 1:
                     warnings.warn(
-                        f"Const column {col} has multiple constraints {ids} (types={types})",
+                        f"Const column {meta.name!r} has multiple constraints {ids} (types={types})",
                         DuplicateColumnWarning
                     )
 
             if len(ids) > 1:
                 warnings.warn(
-                    f"Column {col} used in multiple constraints {sorted(types)} "
+                    f"Column {meta.name!r} used in multiple constraints {sorted(types)} "
                     f"(registered at positions {ids})",
                     DuplicateColumnWarning
                 )
@@ -459,12 +491,9 @@ class RandomSampler(BaseSampler):
         if self.n_jobs == 1 or n_samples < _PARALLEL_MIN_SAMPLES:
             samples = self._generate_chunk(n_samples, self.rng)
         else:
-            # SeedSequence gives each worker an independent stream
-            # generator objects cannot cross the pickle boundary
             n_chunks = min(effective_n_jobs(self.n_jobs), n_samples)
             sizes = [len(c) for c in np.array_split(np.arange(n_samples), n_chunks)]
             seeds = np.random.SeedSequence(self.seed).spawn(n_chunks)
-            # joblib's __call__ is unannotated, so its result infers as Optional
             chunks: list[list] = Parallel(n_jobs=self.n_jobs)(
                 delayed(self._generate_chunk)(size, np.random.default_rng(seed))
                 for size, seed in zip(sizes, seeds)
@@ -473,7 +502,7 @@ class RandomSampler(BaseSampler):
         return np.array(samples)
 
 
-    def sample(self, n_samples: int) -> np.ndarray:
+    def sample(self, n_samples: int) -> SampleOutput:
         """
         Generate samples satisfying all registered constraints.
 
@@ -484,8 +513,10 @@ class RandomSampler(BaseSampler):
 
         Returns
         -------
-        np.ndarray
-            Array of shape (n_samples, n_features), dtype=object.
+        np.ndarray or DataFrame
+            Shape (n_samples, n_features). The same type `setup` was given: an
+            object array for an array, or a pandas/polars DataFrame carrying the
+            input's column names and per-column dtypes.
 
         Raises
         ------
@@ -514,8 +545,8 @@ class RandomSampler(BaseSampler):
 
         with spinning():
             samples = self._sample(n_samples)
-            
-        return samples
+
+        return self._to_frame(samples)
 
 
     

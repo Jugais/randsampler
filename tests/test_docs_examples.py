@@ -29,13 +29,24 @@ def mix():
     })
 
 def test_quickstart(train):
-    sampler = RandomSampler.setup(train.values, random_state=42)
-    sampler.set_constraints("multihot", cols=[0, 1], n_hot=1)
-    result = sampler.sample(N)
+    sampler = RandomSampler.setup(train, random_state=42)
+    sampler.set_constraints("multihot", cols=["is_active", "is_negative"], n_hot=1)
+    out = sampler.sample(N)
 
-    out = pd.DataFrame(result, columns=train.columns)
+    assert isinstance(out, pd.DataFrame)
+    assert list(out.columns) == list(train.columns)
     assert len(out) == N
-    assert (out[["is_active", "is_negative"]].astype(int).sum(axis=1) == 1).all()
+    assert (out[["is_active", "is_negative"]].sum(axis=1) == 1).all()
+
+
+def test_quickstart_with_an_array(train):
+    sampler = RandomSampler.setup(train.to_numpy(), random_state=42)
+    assert sampler.feature_names == list(range(train.shape[1]))
+    sampler.set_constraints("multihot", cols=[0, 1], n_hot=1)
+    out = sampler.sample(N)
+
+    assert isinstance(out, np.ndarray) and out.dtype == object
+    assert out[:, [0, 1]].astype(int).sum(axis=1).max() == 1
 
 def test_reproducibility_claim(train):
     """Documented: same random_state under the same n_jobs gives the same output."""
@@ -104,6 +115,24 @@ def test_stepsum_infeasible_raises(mix):
     )
     with pytest.raises(ConstraintViolationError):
         sampler.sample(1)
+
+def test_categories_single_column(train):
+    sampler = RandomSampler.setup(train, random_state=0)
+    sampler.set_constraints(
+        "categories", cols=["city"], values=["Tokyo", "Osaka"], strength="soft"
+    )
+    assert set(sampler.sample(N)["city"]) <= {"Tokyo", "Osaka"}
+
+def test_categories_by_name(train):
+    sampler = RandomSampler.setup(train, random_state=0)
+    sampler.set_constraints(
+        "categories",
+        cols=["category", "city"],
+        values=[["A", "Tokyo"], ["B", "Osaka"]],
+        strength="soft",
+    )
+    out = sampler.sample(N)[["category", "city"]]
+    assert set(map(tuple, out.to_numpy())) <= {("A", "Tokyo"), ("B", "Osaka")}
 
 def test_categories_soft(train):
     sampler = RandomSampler.setup(train.values, random_state=0)

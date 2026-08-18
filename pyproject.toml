@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlsampler"
-version = "0.4.0"
-description = "Flexible constrained random sampler for doe sampling or reverse analysis in machine learning"
+version = "0.5.0"
+description = "Constraint-aware sampling for design of experiments and reverse analysis on mixed-type tabular data"
 authors = [
   { name="Jugai O" }
 ]
@@ -16,14 +16,29 @@ dependencies = [
   "joblib"
 ]
 
-license = { text= "LICENSE" }
+keywords = [
+  "sampling",
+  "constraints",
+  "design-of-experiments",
+  "doe",
+  "latin-hypercube",
+  "reverse-analysis",
+  "synthetic-data",
+  "tabular-data",
+  "machine-learning",
+]
+
+[project.urls]
+Homepage = "https://github.com/Jugais/randsampler"
+Documentation = "https://jugais.github.io/randsampler/"
+Repository = "https://github.com/Jugais/randsampler"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [project.optional-dependencies]
 docs = ["sphinx", "sphinx-rtd-theme", "scipy"]
-dev = ["pytest", "scipy", "pyright"]  # [claude fixed] test infra; pyright verifies the set_constraints overloads
+dev = ["pytest", "scipy", "pyright", "pandas", "polars"]  # pyright verifies the set_constraints overloads
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

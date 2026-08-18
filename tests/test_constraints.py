@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
-from mlsampler.errors import ConstraintViolationError
+from mlsampler import RandomSampler
+from mlsampler.errors import ConstraintValidationError, ConstraintViolationError
 
 N = 30
 
@@ -73,6 +74,74 @@ def test_categories_soft(sampler):
 def test_categories_rejects_duplicate_values(sampler):
     with pytest.raises(ConstraintViolationError, match="unique"):
         sampler.set_constraints("categories", cols=[5], values=[["a"], ["a"]])
+
+
+class TestCategoriesSingleColumn:
+    @pytest.mark.parametrize("strength", ["soft", "hard"])
+    def test_a_flat_list_constrains_one_column(self, sampler, strength):
+        sampler.set_constraints(
+            "categories", cols=[5], values=["a", "b"], strength=strength
+        )
+        assert set(sampler.sample(N)[:, 5]) <= {"a", "b"}
+
+    def test_flat_and_nested_are_equivalent(self, X_numeric):
+        """Same seed, same shape of result: the flat form is only sugar."""
+        def run(values):
+            s = RandomSampler.setup(X_numeric, random_state=0, n_jobs=1)
+            s.set_constraints("categories", cols=[5], values=values, strength="soft")
+            return s.sample(N)
+
+        assert np.array_equal(run(["a", "b"]), run([["a"], ["b"]]))
+
+    def test_flat_values_are_normalised_at_construction(self, sampler):
+        sampler.set_constraints("categories", cols=[5], values=["a", "b"], strength="soft")
+        assert sampler.constraints[0].values.tolist() == [["a"], ["b"]]
+
+    def test_duplicate_detection_still_applies_to_the_flat_form(self, sampler):
+        with pytest.raises(ConstraintViolationError, match="unique"):
+            sampler.set_constraints("categories", cols=[5], values=["a", "a"])
+
+
+class TestCategoriesArity:
+    """A mismatch between `cols` and `values` used to surface as an IndexError
+    from inside `sample()`; it is now rejected at construction."""
+
+    def test_flat_values_with_several_cols_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="Nest each entry"):
+            sampler.set_constraints("categories", cols=[4, 5], values=["a", "b"])
+
+    def test_short_nested_entry_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="must hold 2 value"):
+            sampler.set_constraints("categories", cols=[4, 5], values=[["a", "b"], ["c"]])
+
+    def test_non_sequence_entry_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="must hold 2 value"):
+            sampler.set_constraints("categories", cols=[4, 5], values=[["a", "b"], 5])
+
+    def test_empty_values_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="must not be empty"):
+            sampler.set_constraints("categories", cols=[5], values=[])
+
+    @pytest.mark.parametrize(
+        "values",
+        [
+            pytest.param(np.array([["a", "b"], ["c", "a"]], dtype=object), id="ndarray_2d"),
+            pytest.param((("a", "b"), ("c", "a")), id="tuple_of_tuples"),
+        ],
+    )
+    def test_values_may_be_any_sequence(self, sampler, values):
+        """The docs pass `df[[...]].to_numpy()`, so the checks must not assume a
+        list: truthiness on a 2-D array raises."""
+        sampler.set_constraints("categories", cols=[4, 5], values=values, strength="soft")
+        out = sampler.sample(N)[:, [4, 5]]
+        assert set(map(tuple, out)) <= {("a", "b"), ("c", "a")}
+
+    def test_a_valid_multi_column_pattern_is_unaffected(self, sampler):
+        sampler.set_constraints(
+            "categories", cols=[4, 5], values=[["a", "b"], ["c", "a"]], strength="soft"
+        )
+        out = sampler.sample(N)[:, [4, 5]]
+        assert set(map(tuple, out)) <= {("a", "b"), ("c", "a")}
 
 
 def test_callable_constraint_filters(sampler):

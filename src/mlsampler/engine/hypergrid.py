@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Optional
 from ..base import BaseSampler, DtypeMeta as dm
+from ..types import SampleOutput  # [claude fixed]
 from ..terminals import spinning
 try:
     from scipy.stats import qmc
@@ -72,7 +73,7 @@ class HyperGridSampler(BaseSampler):
             sampled = self.rng.choice(vals, size=n_samples)
             cols.append(sampled)
 
-        return np.column_stack(cols) if cols else np.empty((n_samples, 0))
+        return np.column_stack([c.astype(object) for c in cols]) if cols else np.empty((n_samples, 0))
 
     def _sample(self, n_samples: int) -> np.ndarray:
         self.rng = np.random.default_rng(self.config.random_state)
@@ -98,7 +99,7 @@ class HyperGridSampler(BaseSampler):
 
         return result
 
-    def sample(self, n_samples: int) -> np.ndarray:
+    def sample(self, n_samples: int) -> SampleOutput:
         """
         Parameters
         ----------
@@ -107,9 +108,10 @@ class HyperGridSampler(BaseSampler):
 
         Returns
         -------
-        np.ndarray
-            Array of shape (n_samples, n_features) containing the generated samples.
-            The column order matches the input feature configuration.
+        np.ndarray or DataFrame
+            Shape (n_samples, n_features), in the input's column order. The same
+            type `setup` was given: an object array for an array, or a
+            pandas/polars DataFrame carrying the input's column names and dtypes.
 
         Notes
         -----
@@ -121,5 +123,5 @@ class HyperGridSampler(BaseSampler):
         
         with spinning():
             samples = self._sample(n_samples)
-        return samples
+        return self._to_frame(samples)
 

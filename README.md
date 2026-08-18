@@ -1,5 +1,3 @@
-<!-- [claude fixed] rewritten: added the constraint reference, a working example, the
-     reproducibility guarantee and the known limitations (TASK.md Phase 5.4) -->
 # mlsampler
 
 A constraint-aware sampling library for reverse analysis and design of experiments.
@@ -37,25 +35,55 @@ train = pd.DataFrame({
     "city":        ["Tokyo", "Osaka", "Nagoya", "Fukuoka", "Sapporo"],
 })
 
-sampler = RandomSampler.setup(train.values, random_state=42)
+sampler = RandomSampler.setup(train, random_state=42)
 
 # exactly one of the two flags is on
-sampler.set_constraints("multihot", cols=[0, 1], n_hot=1)
+sampler.set_constraints("multihot", cols=["is_active", "is_negative"], n_hot=1)
 # keep temperature in a range the training data never covered
-sampler.set_constraints("range", cols=[3], low=-10.0, high=40.0)
+sampler.set_constraints("range", cols=["temperature"], low=-10.0, high=40.0)
 # category and city must stay a combination that actually occurs
 sampler.set_constraints(
     "categories",
-    cols=[4, 5],
+    cols=["category", "city"],
     values=train[["category", "city"]].to_numpy(),
     strength="soft",
 )
 
-result = sampler.sample(1000)
-print(pd.DataFrame(result, columns=train.columns))
+print(sampler.sample(1000))   # a DataFrame, with the same columns and dtypes
 ```
 
-Columns are addressed by **integer position**, not by name.
+## Column names and DataFrames
+
+`setup` accepts a **pandas or polars DataFrame** as well as a NumPy array, and `sample`
+returns the same type it was given — with the input's column names, column order, and
+per-column dtypes rather than a single `object` array.
+
+Neither library is a dependency. `setup` recognises a DataFrame by duck typing, and the
+one import needed to rebuild the result only runs once you have handed that library's
+object in.
+
+```python
+sampler = RandomSampler.setup(train)          # DataFrame in
+sampler.feature_names                         # ['is_active', ..., 'city']
+sampler.set_constraints("range", cols=["temperature"], low=0.0, high=1.0)
+sampler.sample(100)                           # DataFrame out
+
+sampler = RandomSampler.setup(train.to_numpy())   # array in
+sampler.feature_names                             # [0, 1, 2, 3, 4, 5]
+sampler.set_constraints("range", cols=[3], low=0.0, high=1.0)
+sampler.sample(100)                               # array out
+```
+
+A column is addressed by **name (`str`) or by position (`int`)**. An `int` always means a
+position, never a label, so `cols=[0]` is the first column whatever it is called.
+
+Column labels must be either all strings or exactly `0..n_features-1`; anything else —
+`columns=[5, 3, 9]`, a mix of names and numbers, a `MultiIndex`, or duplicate names —
+raises `ValueError`, because it would make `cols` ambiguous. A DataFrame with no columns
+set (pandas' default `RangeIndex`) falls in the second case and round-trips fine.
+
+Note that the returned dtype follows the **values**, not what `setup` inferred: a
+constraint that writes floats into a column inferred as integer yields a float column.
 
 ## Which sampler?
 
@@ -77,14 +105,25 @@ Register constraints with `set_constraints(name, **kwargs)`.
 | `"multihot"` | sets exactly `n_hot` columns to 1, the rest to 0 | `cols`, `n_hot` |
 | `"random"` | keeps a random subset, zeroes the others | `cols`, `min_used`, `max_used` |
 | `"range"` | draws uniformly from `[low, high]` | `cols`, `low`, `high` |
-| `"categories"` | restricts columns to allowed combinations | `cols`, `values`, `strength` |
+| `"categories"` | restricts columns to allowed values or combinations | `cols`, `values`, `strength` |
 | `"step"` | snaps onto `low + k * step` | **`col`**, `step`, `low`, `high` |
 | `"stepsum"` | distributes a total in fixed increments | `cols`, `sum_value`, `lows`, `highs`, `step` |
 | callable | accepts/rejects a row, or rewrites its columns | `cols` |
 
-> **`"step"` takes `col` (a single integer). Every other constraint takes `cols` (a
+> **`"step"` takes `col` (a single column). Every other constraint takes `cols` (a
 > list).** This is the one inconsistency in the API; passing `cols=` to `"step"` raises
 > a `ConstraintValidationError` telling you so.
+
+Everywhere `cols` or `col` appears, a column may be given by name or by position.
+
+`"categories"` takes a flat list when it constrains a single column, and one entry per
+column when it constrains several:
+
+```python
+sampler.set_constraints("categories", cols=["city"], values=["Tokyo", "Osaka"])
+sampler.set_constraints("categories", cols=["category", "city"],
+                        values=[["A", "Tokyo"], ["B", "Osaka"]])
+```
 
 All constraints also accept `rng`, honoured only when `n_jobs=1`.
 
@@ -96,7 +135,8 @@ sampler.set_constraints(lambda row: float(row[3]) < 30.0, cols=[3])
 ```
 
 Rows are `dtype=object` arrays, since one row mixes numbers with category strings — cast
-before doing arithmetic.
+before doing arithmetic. (This is about the row a callable sees. The result of `sample`
+is typed per column when you passed a DataFrame.)
 
 ## Reproducibility
 
@@ -140,6 +180,20 @@ Below 100 requested rows the serial path is used regardless of `n_jobs`.
 - Constraints are applied per row, so very large draws are bounded by Python-level
   iteration rather than vectorised numpy.
 - Input must not contain missing values; `setup()` raises on `NaN`/`None`.
+
+## Upgrading to 0.5.0
+
+This release adds column names and DataFrame round-tripping. Existing array-based code
+keeps working unchanged: an array in still means an object array out, and `cols=[0]`
+still means the first column.
+
+One thing changes for static type checkers. `sample()` no longer declares `np.ndarray`,
+because what it returns now depends on what `setup()` was given. Code annotated against
+the old return type may need updating; at runtime nothing about the array path changed.
+
+`HyperGridSampler` also gains a fix worth knowing about: it used to turn integer columns
+into strings whenever the data contained a categorical column, because the columns were
+stacked into a single array that unified their dtypes. Integer columns now stay integers.
 
 ## Upgrading to 0.4.0
 

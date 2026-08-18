@@ -161,10 +161,37 @@ class CategoriesConstraint(Constraints):
         v.validate_choice(strength, ('hard', 'soft'), 'strength')
         super().__init__(cols, rng)
         self.strength = strength
+
+        if len(values) == 0:
+            raise ConstraintValidationError(
+                "values must not be empty: list the allowed value of every column "
+                "in cols, or the allowed combinations across them."
+            )
+
+        flat = not any(isinstance(val, ArrayLike) for val in values)
+        if flat:
+            values = [[val] for val in values]
+
+        # check arity at construction; a mismatch used to surface as an
+        # IndexError from `self.values[:, i]` in the middle of sample()
+        wrong = next(
+            (val for val in values
+             if not isinstance(val, ArrayLike) or len(val) != len(cols)),
+            None,
+        )
+        if wrong is not None:
+            raise ConstraintValidationError(
+                f"values holds single values, but cols names {len(cols)} columns. "
+                "Nest each entry to give one value per column, e.g. [[a1, b1], [a2, b2]]."
+                if flat else
+                f"Each entry of values must hold {len(cols)} value(s), one per column "
+                f"in cols; got {wrong!r}."
+            )
+
         val_tuples = [tuple(v) for v in values]
         if len(set(val_tuples)) != len(values):
             raise ConstraintViolationError("values must be unique")
-        
+
         self.values = np.array(values, dtype=object)
 
     def _constrain(
