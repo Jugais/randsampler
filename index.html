@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Documentation of mlsampler &mdash; mlsampler  documentation</title>
+  <title>Documentation of mlsampler &mdash; mlsampler 0.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/documentation_options.js?v=1dd76d02"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -73,7 +73,66 @@
              
   <section id="documentation-of-mlsampler">
 <h1>Documentation of mlsampler<a class="headerlink" href="#documentation-of-mlsampler" title="Link to this heading"></a></h1>
-<p>Welcome to mlsampler!</p>
+<p><strong>Constraint-aware sampling for design of experiments and reverse analysis.</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">mlsampler</span></code> generates rows that satisfy constraints you declare, across continuous,
+integer, binary and categorical columns at once. Hand it a sample of your data: it
+infers each column’s type and range, then samples within them.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mlsampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomSampler</span>
+
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"multihot"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"is_active"</span><span class="p">,</span> <span class="s2">"is_negative"</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"range"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">],</span> <span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">40.0</span><span class="p">)</span>
+
+<span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="which-sampler">
+<h2>Which sampler<a class="headerlink" href="#which-sampler" title="Link to this heading"></a></h2>
+<p>The two samplers are <strong>not</strong> interchangeable.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Purpose</p></td>
+<td><p>satisfy several constraints at once</p></td>
+<td><p>cover a continuous space evenly</p></td>
+</tr>
+<tr class="row-odd"><td><p>Constraints</p></td>
+<td><p>yes</p></td>
+<td><p><strong>no</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>Method</p></td>
+<td><p>rejection sampling with retries</p></td>
+<td><p>Latin Hypercube + uniform grid</p></td>
+</tr>
+<tr class="row-odd"><td><p>Needs <code class="docutils literal notranslate"><span class="pre">scipy</span></code></p></td>
+<td><p>no</p></td>
+<td><p>yes</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="what-it-gives-you">
+<h2>What it gives you<a class="headerlink" href="#what-it-gives-you" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Eight constraints by name</strong> – <code class="docutils literal notranslate"><span class="pre">sum</span></code>, <code class="docutils literal notranslate"><span class="pre">sumint</span></code>, <code class="docutils literal notranslate"><span class="pre">multihot</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code>,
+<code class="docutils literal notranslate"><span class="pre">range</span></code>, <code class="docutils literal notranslate"><span class="pre">categories</span></code>, <code class="docutils literal notranslate"><span class="pre">step</span></code>, <code class="docutils literal notranslate"><span class="pre">stepsum</span></code> – plus any callable that accepts or
+rewrites a row. Several constraints apply to one draw at the same time.</p></li>
+<li><p><strong>Types inferred from the data.</strong> A column becomes constant, binary, int, float or
+categorical without you declaring anything.</p></li>
+<li><p><strong>Columns by name or by position.</strong> A <code class="docutils literal notranslate"><span class="pre">str</span></code> is a name, an <code class="docutils literal notranslate"><span class="pre">int</span></code> is always a
+position.</p></li>
+<li><p><strong>DataFrames round-trip.</strong> A pandas or polars frame is accepted and returned in kind,
+with the input’s column names and per-column dtypes. Neither library is a dependency.</p></li>
+<li><p><strong>Reproducibility as a guarantee.</strong> Equal <code class="docutils literal notranslate"><span class="pre">random_state</span></code> under equal <code class="docutils literal notranslate"><span class="pre">n_jobs</span></code>
+produces equal output, with or without constraints.</p></li>
+</ul>
+<p>Install with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">mlsampler</span></code>. Runtime requirements are <code class="docutils literal notranslate"><span class="pre">numpy</span></code> and
+<code class="docutils literal notranslate"><span class="pre">joblib</span></code>; <code class="docutils literal notranslate"><span class="pre">scipy</span></code> is needed only for <code class="docutils literal notranslate"><span class="pre">HyperGridSampler</span></code>.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="RandomSampler.html">Random Sampler</a><ul>
@@ -99,6 +158,7 @@
 </li>
 </ul>
 </div>
+</section>
 </section>
 
 

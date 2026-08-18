@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tutorial &mdash; mlsampler  documentation</title>
+  <title>Tutorial &mdash; mlsampler 0.5.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/documentation_options.js?v=1dd76d02"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -46,7 +46,10 @@
 <li class="toctree-l1"><a class="reference internal" href="HyperGridSampler.html">Hybrid Grid Sampler</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorial</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#dataframes-round-trip">DataFrames round-trip</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#reproducibility">Reproducibility</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#constraints">Constraints</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#sum"><code class="docutils literal notranslate"><span class="pre">sum</span></code></a></li>
@@ -112,38 +115,57 @@ column. You then register constraints and draw samples.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mlsampler</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomSampler</span>
 
 <span class="n">train</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">&quot;is_active&quot;</span><span class="p">:</span>   <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;is_negative&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
-    <span class="s2">&quot;score&quot;</span><span class="p">:</span>       <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-    <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">5.5</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">36.6</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">15.8</span><span class="p">],</span>
-    <span class="s2">&quot;category&quot;</span><span class="p">:</span>    <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;100&quot;</span><span class="p">],</span>
-    <span class="s2">&quot;city&quot;</span><span class="p">:</span>        <span class="p">[</span><span class="s2">&quot;Tokyo&quot;</span><span class="p">,</span> <span class="s2">&quot;Osaka&quot;</span><span class="p">,</span> <span class="s2">&quot;Nagoya&quot;</span><span class="p">,</span> <span class="s2">&quot;Fukuoka&quot;</span><span class="p">,</span> <span class="s2">&quot;Sapporo&quot;</span><span class="p">],</span>
-    <span class="s2">&quot;cost&quot;</span><span class="p">:</span>        <span class="p">[</span><span class="mi">100</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="s2">"is_active"</span><span class="p">:</span>   <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">"is_negative"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="s2">"score"</span><span class="p">:</span>       <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="s2">"temperature"</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">5.5</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">36.6</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">15.8</span><span class="p">],</span>
+    <span class="s2">"category"</span><span class="p">:</span>    <span class="p">[</span><span class="s2">"A"</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">,</span> <span class="s2">"C"</span><span class="p">,</span> <span class="s2">"D"</span><span class="p">,</span> <span class="s2">"100"</span><span class="p">],</span>
+    <span class="s2">"city"</span><span class="p">:</span>        <span class="p">[</span><span class="s2">"Tokyo"</span><span class="p">,</span> <span class="s2">"Osaka"</span><span class="p">,</span> <span class="s2">"Nagoya"</span><span class="p">,</span> <span class="s2">"Fukuoka"</span><span class="p">,</span> <span class="s2">"Sapporo"</span><span class="p">],</span>
+    <span class="s2">"cost"</span><span class="p">:</span>        <span class="p">[</span><span class="mi">100</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span>
 <span class="p">})</span>
 
-<span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;multihot&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"multihot"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"is_active"</span><span class="p">,</span> <span class="s2">"is_negative"</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-<span class="n">result</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">train</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">))</span>
 </pre></div>
 </div>
-<p>Columns are addressed by <strong>integer position</strong>, not by name.</p>
+<p>Columns are addressed by <strong>name or by integer position</strong>. An <code class="docutils literal notranslate"><span class="pre">int</span></code> always means a
+position, so <code class="docutils literal notranslate"><span class="pre">cols=[0]</span></code> is the first column whatever it is called.</p>
+<section id="dataframes-round-trip">
+<h3>DataFrames round-trip<a class="headerlink" href="#dataframes-round-trip" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">setup()</span></code> accepts a pandas or polars DataFrame as well as a NumPy array, and
+<code class="docutils literal notranslate"><span class="pre">sample()</span></code> returns the same type it was given, with the input’s column names, column
+order and per-column dtypes. Neither library is a dependency: a DataFrame is recognised
+by duck typing, and the import needed to rebuild the result only runs once you have
+handed that library’s object in.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">feature_names</span>          <span class="c1"># [0, 1, 2, 3, 4, 5, 6] -- no names, so positions</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"multihot"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>            <span class="c1"># an object array, as before</span>
+</pre></div>
+</div>
+<p>Column labels must be either all strings or exactly <code class="docutils literal notranslate"><span class="pre">0..n_features-1</span></code>. Non-contiguous
+integer labels, a mix of names and numbers, a <code class="docutils literal notranslate"><span class="pre">MultiIndex</span></code>, or duplicate names raise
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>, since any of those would make <code class="docutils literal notranslate"><span class="pre">cols</span></code> ambiguous.</p>
+<p>The dtype of a returned column follows its <strong>values</strong>, not what <code class="docutils literal notranslate"><span class="pre">setup()</span></code> inferred. A
+constraint that writes floats into a column inferred as integer produces a float column.</p>
 <p>Inferred types are available on the config:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">features</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;col </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"col </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>A column becomes <code class="docutils literal notranslate"><span class="pre">constant</span></code> when every value is the same, <code class="docutils literal notranslate"><span class="pre">binary</span></code> when the values
 are a subset of <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1}</span></code>, <code class="docutils literal notranslate"><span class="pre">int</span></code> when every value is integral, <code class="docutils literal notranslate"><span class="pre">float</span></code> otherwise,
 and <code class="docutils literal notranslate"><span class="pre">categorical</span></code> when the values are not numeric at all.</p>
 </section>
+</section>
 <section id="reproducibility">
 <h2>Reproducibility<a class="headerlink" href="#reproducibility" title="Link to this heading"></a></h2>
 <p>Passing <code class="docutils literal notranslate"><span class="pre">random_state</span></code> makes sampling repeatable:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">():</span>
     <span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
 
 <span class="p">(</span><span class="n">run</span><span class="p">()</span> <span class="o">==</span> <span class="n">run</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>   <span class="c1"># True</span>
@@ -166,7 +188,7 @@ you need that.</p></li>
 <code class="docutils literal notranslate"><span class="pre">ParallelRngWarning</span></code> is raised.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"sum"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
                         <span class="n">rng</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>
 </pre></div>
 </div>
@@ -190,13 +212,13 @@ other constraint has already shaped.</p>
 <h3><code class="docutils literal notranslate"><span class="pre">sum</span></code><a class="headerlink" href="#sum" title="Link to this heading"></a></h3>
 <p>Distributes a total across the selected columns.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],</span>
-    <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">],</span>
-    <span class="s2">&quot;c&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">],</span>
+    <span class="s2">"a"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">],</span>
+    <span class="s2">"b"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">],</span>
+    <span class="s2">"c"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">],</span>
 <span class="p">})</span>
 
 <span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"sum"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 
 <span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
 <span class="n">out</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>     <span class="c1"># every row sums to 1.0</span>
@@ -209,7 +231,7 @@ other constraint has already shaped.</p>
 <h3><code class="docutils literal notranslate"><span class="pre">sumint</span></code><a class="headerlink" href="#sumint" title="Link to this heading"></a></h3>
 <p>Like <code class="docutils literal notranslate"><span class="pre">sum</span></code>, but partitions an integer total into whole numbers.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;sumint&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"sumint"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 
 <span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
 <span class="c1"># every row sums to exactly 100, and every value is a whole number</span>
@@ -221,7 +243,7 @@ other constraint has already shaped.</p>
 <h3><code class="docutils literal notranslate"><span class="pre">multihot</span></code><a class="headerlink" href="#multihot" title="Link to this heading"></a></h3>
 <p>Sets exactly <code class="docutils literal notranslate"><span class="pre">n_hot</span></code> of the selected columns to 1 and the rest to 0.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;multihot&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"multihot"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">min_used</span></code> and <code class="docutils literal notranslate"><span class="pre">max_used</span></code> are not accepted here; both follow from <code class="docutils literal notranslate"><span class="pre">n_hot</span></code>.</p>
@@ -231,7 +253,7 @@ other constraint has already shaped.</p>
 <p>Keeps a random subset of the columns and zeroes the others, leaving the kept values as
 sampled.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">max_used</span></code> must not exceed <code class="docutils literal notranslate"><span class="pre">len(cols)</span></code>.</p>
@@ -240,7 +262,7 @@ sampled.</p>
 <h3><code class="docutils literal notranslate"><span class="pre">range</span></code><a class="headerlink" href="#range" title="Link to this heading"></a></h3>
 <p>Overrides the range inferred from the data.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;range&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">40.0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"range"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">low</span><span class="o">=-</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">40.0</span><span class="p">)</span>
 
 <span class="n">out</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)[:,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
 <span class="n">out</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">out</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>    <span class="c1"># within [-10.0, 40.0]</span>
@@ -252,7 +274,7 @@ sampled.</p>
 <p>Snaps a column onto a discrete grid. <strong>This is the one constraint that takes</strong>
 <code class="docutils literal notranslate"><span class="pre">col</span></code> <strong>(singular).</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;step&quot;</span><span class="p">,</span> <span class="n">col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"step"</span><span class="p">,</span> <span class="n">col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 
 <span class="c1"># values are drawn from 0.0, 0.25, 0.50, 0.75, 1.00</span>
 </pre></div>
@@ -264,7 +286,7 @@ sampled.</p>
 <p>Distributes a total in fixed increments, honouring a lower and upper bound per column.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">mix</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
-    <span class="s2">&quot;stepsum&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="s2">"stepsum"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">sum_value</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
     <span class="n">lows</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">highs</span><span class="o">=</span><span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -280,13 +302,23 @@ a <code class="docutils literal notranslate"><span class="pre">ConstraintViolati
 <section id="categories">
 <h3><code class="docutils literal notranslate"><span class="pre">categories</span></code><a class="headerlink" href="#categories" title="Link to this heading"></a></h3>
 <p>Restricts a group of columns to a list of allowed combinations.</p>
+<p>For a single column, list the allowed values directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
+    <span class="s2">"categories"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"city"</span><span class="p">],</span> <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="s2">"Tokyo"</span><span class="p">,</span> <span class="s2">"Osaka"</span><span class="p">],</span> <span class="n">strength</span><span class="o">=</span><span class="s2">"soft"</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>For several columns, each entry of <code class="docutils literal notranslate"><span class="pre">values</span></code> gives one value per column, in the order
+of <code class="docutils literal notranslate"><span class="pre">cols</span></code>. A mismatch is reported when the constraint is registered, not while
+sampling.</p>
 <p>With <code class="docutils literal notranslate"><span class="pre">strength='soft'</span></code> the sampler picks one of the allowed combinations directly:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
-    <span class="s2">&quot;categories&quot;</span><span class="p">,</span>
+    <span class="s2">"categories"</span><span class="p">,</span>
     <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s2">&quot;category&quot;</span><span class="p">,</span> <span class="s2">&quot;city&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
-    <span class="n">strength</span><span class="o">=</span><span class="s2">&quot;soft&quot;</span><span class="p">,</span>
+    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s2">"category"</span><span class="p">,</span> <span class="s2">"city"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">strength</span><span class="o">=</span><span class="s2">"soft"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -294,10 +326,10 @@ a <code class="docutils literal notranslate"><span class="pre">ConstraintViolati
 allowed combination, and the row is otherwise rejected and redrawn:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
 <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
-    <span class="s2">&quot;categories&quot;</span><span class="p">,</span>
+    <span class="s2">"categories"</span><span class="p">,</span>
     <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-    <span class="n">values</span><span class="o">=</span><span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;Tokyo&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;Osaka&quot;</span><span class="p">]],</span>
-    <span class="n">strength</span><span class="o">=</span><span class="s2">&quot;hard&quot;</span><span class="p">,</span>
+    <span class="n">values</span><span class="o">=</span><span class="p">[[</span><span class="s2">"A"</span><span class="p">,</span> <span class="s2">"Tokyo"</span><span class="p">],</span> <span class="p">[</span><span class="s2">"B"</span><span class="p">,</span> <span class="s2">"Osaka"</span><span class="p">]],</span>
+    <span class="n">strength</span><span class="o">=</span><span class="s2">"hard"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -325,13 +357,13 @@ Cast before doing arithmetic:</p>
 <h2>Combining constraints<a class="headerlink" href="#combining-constraints" title="Link to this heading"></a></h2>
 <p>Constraints are applied in registration order.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span> <span class="o">=</span> <span class="n">RandomSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;multihot&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"multihot"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">n_hot</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">max_used</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 <span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span>
-    <span class="s2">&quot;categories&quot;</span><span class="p">,</span>
+    <span class="s2">"categories"</span><span class="p">,</span>
     <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span>
-    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s2">&quot;category&quot;</span><span class="p">,</span> <span class="s2">&quot;city&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
-    <span class="n">strength</span><span class="o">=</span><span class="s2">&quot;soft&quot;</span><span class="p">,</span>
+    <span class="n">values</span><span class="o">=</span><span class="n">train</span><span class="p">[[</span><span class="s2">"category"</span><span class="p">,</span> <span class="s2">"city"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">strength</span><span class="o">=</span><span class="s2">"soft"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">result</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
@@ -340,7 +372,7 @@ Cast before doing arithmetic:</p>
 <p>Registering two constraints on the same column raises a <code class="docutils literal notranslate"><span class="pre">DuplicateColumnWarning</span></code>: the
 later one overwrites the earlier one’s work.</p>
 <p>Pass <code class="docutils literal notranslate"><span class="pre">reset=True</span></code> to replace the registered set, or call <code class="docutils literal notranslate"><span class="pre">reset_constraints()</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">&quot;range&quot;</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">low</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">sampler</span><span class="o">.</span><span class="n">set_constraints</span><span class="p">(</span><span class="s2">"range"</span><span class="p">,</span> <span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">low</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="nb">len</span><span class="p">(</span><span class="n">sampler</span><span class="o">.</span><span class="n">constraints</span><span class="p">)</span>    <span class="c1"># 1</span>
 </pre></div>
 </div>
@@ -356,12 +388,12 @@ type is drawn uniformly from its own value set.</p>
 
 <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
     <span class="p">[</span>
-        <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">],</span>
-        <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">],</span>
-        <span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;AB&quot;</span><span class="p">],</span>
-        <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">],</span>
+        <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"A"</span><span class="p">],</span>
+        <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"B"</span><span class="p">],</span>
+        <span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"AB"</span><span class="p">],</span>
+        <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"O"</span><span class="p">],</span>
     <span class="p">],</span>
-    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ratio1&quot;</span><span class="p">,</span> <span class="s2">&quot;ratio2&quot;</span><span class="p">,</span> <span class="s2">&quot;rank&quot;</span><span class="p">,</span> <span class="s2">&quot;isOk&quot;</span><span class="p">,</span> <span class="s2">&quot;bloodType&quot;</span><span class="p">],</span>
+    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"ratio1"</span><span class="p">,</span> <span class="s2">"ratio2"</span><span class="p">,</span> <span class="s2">"rank"</span><span class="p">,</span> <span class="s2">"isOk"</span><span class="p">,</span> <span class="s2">"bloodType"</span><span class="p">],</span>
 <span class="p">)</span>
 
 <span class="n">sampler</span> <span class="o">=</span> <span class="n">HyperGridSampler</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>

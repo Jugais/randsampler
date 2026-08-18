@@ -36,13 +36,37 @@ column. You then register constraints and draw samples.
         "cost":        [100] * 5,
     })
 
-    sampler = RandomSampler.setup(train.values, random_state=42)
+    sampler = RandomSampler.setup(train, random_state=42)
+    sampler.set_constraints("multihot", cols=["is_active", "is_negative"], n_hot=1)
+
+    print(sampler.sample(200))
+    
+
+Columns are addressed by **name or by integer position**. An ``int`` always means a
+position, so ``cols=[0]`` is the first column whatever it is called.
+
+DataFrames round-trip
+^^^^^^^^^^^^^^^^^^^^^
+
+``setup()`` accepts a pandas or polars DataFrame as well as a NumPy array, and
+``sample()`` returns the same type it was given, with the input's column names, column
+order and per-column dtypes. Neither library is a dependency: a DataFrame is recognised
+by duck typing, and the import needed to rebuild the result only runs once you have
+handed that library's object in.
+
+.. code-block:: python
+
+    sampler = RandomSampler.setup(train.to_numpy(), random_state=42)
+    sampler.feature_names          # [0, 1, 2, 3, 4, 5, 6] -- no names, so positions
     sampler.set_constraints("multihot", cols=[0, 1], n_hot=1)
+    sampler.sample(200)            # an object array, as before
 
-    result = sampler.sample(200)
-    print(pd.DataFrame(result, columns=train.columns))
+Column labels must be either all strings or exactly ``0..n_features-1``. Non-contiguous
+integer labels, a mix of names and numbers, a ``MultiIndex``, or duplicate names raise
+``ValueError``, since any of those would make ``cols`` ambiguous.
 
-Columns are addressed by **integer position**, not by name.
+The dtype of a returned column follows its **values**, not what ``setup()`` inferred. A
+constraint that writes floats into a column inferred as integer produces a float column.
 
 Inferred types are available on the config:
 
@@ -226,6 +250,19 @@ a ``ConstraintViolationError`` is raised — for example ``sum_value=100`` with
 ^^^^^^^^^^^^^^
 
 Restricts a group of columns to a list of allowed combinations.
+
+For a single column, list the allowed values directly:
+
+.. code-block:: python
+
+    sampler = RandomSampler.setup(train, random_state=0)
+    sampler.set_constraints(
+        "categories", cols=["city"], values=["Tokyo", "Osaka"], strength="soft"
+    )
+
+For several columns, each entry of ``values`` gives one value per column, in the order
+of ``cols``. A mismatch is reported when the constraint is registered, not while
+sampling.
 
 With ``strength='soft'`` the sampler picks one of the allowed combinations directly:
 
