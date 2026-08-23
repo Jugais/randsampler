@@ -179,7 +179,11 @@ Below 100 requested rows the serial path is used regardless of `n_jobs`.
 - `HyperGridSampler` requires `scipy`.
 - Constraints are applied per row, so very large draws are bounded by Python-level
   iteration rather than vectorised numpy.
-- Input must not contain missing values; `setup()` raises on `NaN`/`None`.
+<!-- [claude fixed] missing values are now dropped per column instead of rejected -->
+- `NaN`/`None` in the input are dropped column by column, and each column's type and
+  range are inferred from the values that remain. A row with nothing in it, or a column
+  with nothing to infer from, still raises `ValueError`. **Sampling never produces a
+  missing value**, so the result can be fed straight back into `setup()`.
 
 ## Upgrading to 0.5.0
 

@@ -241,10 +241,14 @@ Distributes a total in fixed increments, honouring a lower and upper bound per c
     out = sampler.sample(200).astype(float)
     # every row sums to 10, and no value exceeds 6
 
+.. [claude fixed] feasibility moved to registration time; error type changed
+
 The target must be reachable: ``sum(lows)`` must not exceed ``sum_value``, the residual
-must be a whole number of steps, and ``sum(highs)`` must be able to absorb it. Otherwise
-a ``ConstraintViolationError`` is raised — for example ``sum_value=100`` with
-``highs=[1, 1, 1]`` cannot succeed.
+must be a whole number of steps, and ``sum(highs)`` must be able to absorb it. All three
+follow from the arguments, so an unreachable target raises ``ConstraintValidationError``
+when the constraint is registered rather than during ``sample()`` — for example
+``sum_value=100`` with ``highs=[1, 1, 1]`` cannot succeed. ``lows`` and ``highs`` must
+also hold one value per column in ``cols``.
 
 ``categories``
 ^^^^^^^^^^^^^^

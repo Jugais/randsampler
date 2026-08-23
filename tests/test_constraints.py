@@ -36,10 +36,46 @@ def test_multihot(sampler):
 
 
 def test_random_select(sampler):
+    """`max_used` is guaranteed: writing 0 can only lower the count of non-zero
+    columns. `min_used` is not -- see TestRandomSelectLowerBound."""
     sampler.set_constraints("random", cols=[0, 1, 2], min_used=1, max_used=2)
     out = sampler.sample(N)[:, [0, 1, 2]].astype(float)
-    used = (out != 0).sum(axis=1)
-    assert np.all(used <= 2) and np.all(used >= 1)
+    assert np.all((out != 0).sum(axis=1) <= 2)
+
+
+class TestRandomSelectLowerBound:
+    """`random` writes nothing into the columns it selects, so a selected column
+    whose base draw is already 0 is indistinguishable from an unselected one.
+    `min_used` therefore counts columns selected, not columns that end up non-zero.
+
+    This is invisible on float columns, where 0 has measure zero -- which is why
+    the fixture above never caught it. The xfail pins the defect; when TODO.md A-5
+    lands it will XPASS and force this to be rewritten."""
+
+    @staticmethod
+    def _binary(n_cols):
+        rng = np.random.default_rng(0)
+        X = np.empty((30, n_cols), dtype=object)
+        for col in range(n_cols):
+            X[:, col] = rng.integers(0, 2, 30)
+        return X
+
+    def _sample(self, n_cols=3, min_used=2):
+        sampler = RandomSampler.setup(self._binary(n_cols), random_state=0, n_jobs=1)
+        sampler.set_constraints(
+            "random", cols=list(range(n_cols)), min_used=min_used, max_used=n_cols
+        )
+        return sampler.sample(300)[:, :n_cols].astype(float)
+
+    def test_max_used_still_holds_on_discrete_columns(self):
+        assert np.all((self._sample() != 0).sum(axis=1) <= 3)
+
+    @pytest.mark.xfail(
+        reason="min_used counts selected columns, not non-zero ones (TODO.md A-5)",
+        strict=True,
+    )
+    def test_min_used_is_not_enforced_on_discrete_columns(self):
+        assert np.all((self._sample() != 0).sum(axis=1) >= 2)
 
 
 def test_range_overrides_the_inferred_bounds(sampler):
@@ -64,6 +100,110 @@ def test_stepsum(sampler):
     assert np.allclose(out.sum(axis=1), 10)
     assert np.allclose(out % 1, 0)
     assert np.all(out >= 0) and np.all(out <= 10)
+
+
+class TestStepGrid:
+    """The grid comes from `(high - low) / step`, which floating point rounds down:
+    `(0.3 - 0.0) / 0.1` is 2.9999999999999996, so `high` used to fall off the end."""
+
+    @staticmethod
+    def _grid(sampler, low, high, step):
+        sampler.set_constraints("step", col=0, step=step, low=low, high=high)
+        return sampler.constraints[0].values
+
+    @pytest.mark.parametrize(
+        "low, high, step",
+        [
+            (0.0, 0.3, 0.1),        # regression: floor gave 2 steps, dropping 0.3
+            (0.0, 0.7, 0.1),        # regression: floor gave 6 steps, dropping 0.7
+            (0.0, 1.0, 0.1),
+            (0.0, 1.0, 0.25),
+            (1.0, 2.0, 0.1),
+            (-5.0, 5.0, 0.1),
+            (0.0, 10.0, 0.5),
+        ],
+    )
+    def test_high_is_on_the_grid_when_it_is_a_multiple_of_step(self, sampler, low, high, step):
+        assert np.isclose(self._grid(sampler, low, high, step)[-1], high)
+
+    @pytest.mark.parametrize(
+        "low, high, step", [(0.0, 1.0, 0.3), (0.0, 2.5, 1.0), (0.0, 10.0, 0.7)]
+    )
+    def test_the_grid_stops_below_high_when_it_is_not(self, sampler, low, high, step):
+        values = self._grid(sampler, low, high, step)
+        assert values[-1] <= high + 1e-9
+        assert values[-1] + step > high
+
+    def test_high_actually_gets_sampled(self, X_numeric):
+        s = RandomSampler.setup(X_numeric, random_state=0, n_jobs=1)
+        s.set_constraints("step", col=0, step=0.1, low=0.0, high=0.3)
+        assert np.isclose(s.sample(200)[:, 0].astype(float), 0.3).any()
+
+    def test_stepsum_is_unaffected(self, sampler):
+        """`stepsum` inherits `StepConstraint` but overrides `_constrain` and never
+        reads `self.values`."""
+        sampler.set_constraints(
+            "stepsum", cols=[0, 1, 2], sum_value=0.3,
+            lows=[0, 0, 0], highs=[0.3, 0.3, 0.3], step=0.1,
+        )
+        assert np.allclose(sampler.sample(N)[:, [0, 1, 2]].astype(float).sum(axis=1), 0.3)
+
+
+class TestStepSumValidation:
+    """Feasibility follows from the arguments alone, so it is decided at construction
+    instead of raised once per row from inside `sample()`."""
+
+    def test_lows_exceeding_sum_value_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="exceeds sum_value"):
+            sampler.set_constraints(
+                "stepsum", cols=[0, 1, 2], sum_value=1,
+                lows=[5, 5, 5], highs=[10, 10, 10], step=1,
+            )
+
+    def test_a_residual_off_the_step_grid_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="not a multiple of step"):
+            sampler.set_constraints(
+                "stepsum", cols=[0, 1, 2], sum_value=10,
+                lows=[0, 0, 0], highs=[10, 10, 10], step=3,
+            )
+
+    def test_a_target_beyond_the_capacity_of_highs_is_rejected(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="unreachable within highs"):
+            sampler.set_constraints(
+                "stepsum", cols=[0, 1, 2], sum_value=100,
+                lows=[0, 0, 0], highs=[1, 1, 1], step=1,
+            )
+
+    def test_the_message_carries_both_numbers(self, sampler):
+        with pytest.raises(ConstraintValidationError, match="100 steps of 1"):
+            sampler.set_constraints(
+                "stepsum", cols=[0, 1, 2], sum_value=100,
+                lows=[0, 0, 0], highs=[1, 1, 1], step=1,
+            )
+
+    @pytest.mark.parametrize("name", ["lows", "highs"])
+    def test_bounds_shorter_than_cols_are_rejected(self, sampler, name):
+        kwargs = dict(
+            cols=[0, 1, 2], sum_value=3, lows=[0, 0, 0], highs=[3, 3, 3], step=1
+        )
+        kwargs[name] = kwargs[name][:2]
+        with pytest.raises(ConstraintValidationError, match=f"{name} must hold one value"):
+            sampler.set_constraints("stepsum", **kwargs)
+
+    def test_empty_bounds_are_rejected_before_they_are_indexed(self, sampler):
+        """`lows[0]` used to raise IndexError from the parent constructor."""
+        with pytest.raises(ConstraintValidationError, match="lows must hold one value"):
+            sampler.set_constraints(
+                "stepsum", cols=[0, 1], sum_value=2, lows=[], highs=[2, 2], step=1
+            )
+
+    def test_a_feasible_set_still_builds_and_samples(self, sampler):
+        sampler.set_constraints(
+            "stepsum", cols=[0, 1, 2], sum_value=10,
+            lows=[1, 1, 1], highs=[10, 10, 10], step=1,
+        )
+        out = sampler.sample(N)[:, [0, 1, 2]].astype(float)
+        assert np.allclose(out.sum(axis=1), 10) and np.all(out >= 1)
 
 
 def test_categories_soft(sampler):

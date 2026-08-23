@@ -2,6 +2,8 @@
 # rather than importing anything, so pandas and polars go down one code path and
 # are parametrized together. Cases that only one library can express (pandas alone
 # allows integer and duplicate labels) are tested against that library directly.
+import warnings
+
 import numpy as np
 import pytest
 
@@ -268,3 +270,63 @@ class TestMessages:
         sampler.set_constraints("sum", cols=[0], sum_value=1.0)
         with pytest.warns(UserWarning, match="Column 0"):
             sampler.sample(N)
+
+
+class TestMissingValues:
+    """Both libraries hand `setup` the same thing after `.to_numpy()`: a numeric null
+    becomes `nan`, a string null becomes `None`."""
+
+    GAPPED = {
+        "temp": [1.5, None, 3.5, 4.5],
+        "n": [1, 2, None, 4],
+        "cat": ["x", "y", "z", None],
+    }
+
+    @pytest.fixture(params=["pandas", "polars"])
+    def gapped(self, request):
+        build = pd.DataFrame if request.param == "pandas" else pl.DataFrame
+        return build(self.GAPPED)
+
+    def test_dtypes_are_inferred_from_the_present_values(self, gapped):
+        features = RandomSampler.setup(gapped).config.features
+        assert [f.dtype for f in features] == ["float", "int", "categorical"]
+
+    def test_bounds_and_categories_skip_the_gaps(self, gapped):
+        features = RandomSampler.setup(gapped).config.features
+        assert (features[0].low, features[0].high) == (1.5, 4.5)
+        assert (features[1].low, features[1].high) == (1.0, 4.0)
+        assert features[2].categories == ["x", "y", "z"]
+
+    @pytest.mark.parametrize("cls", SAMPLERS)
+    def test_the_output_carries_no_gaps(self, gapped, cls):
+        from mlsampler.base import _is_missing
+
+        out = cls.setup(gapped, random_state=0).sample(N)
+        assert not any(_is_missing(val) for val in out.to_numpy().ravel())
+
+    def test_an_all_missing_column_is_named_not_numbered(self, frame):
+        name, df = frame
+        build = pd.DataFrame if name == "pandas" else pl.DataFrame
+        empty = build({"good": [1.0, 2.0], "hollow": [None, None]})
+        with pytest.raises(ValueError, match="'hollow'"):
+            RandomSampler.setup(empty)
+
+
+class TestNonFiniteRebuild:
+    """`_column` casts an int column to int64 to check whether the values are still
+    whole. A NaN made that cast emit RuntimeWarning even though the fallback to
+    float was correct."""
+
+    def test_a_callable_writing_nan_does_not_warn(self, frame):
+        _, df = frame
+        sampler = RandomSampler.setup(df, random_state=0, n_jobs=1)
+        sampler.set_constraints(lambda row: np.array([np.nan]), cols=["n"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            out = sampler.sample(N)
+        assert str(out["n"].dtype).lower().startswith("float")
+
+    def test_an_int_column_without_gaps_is_still_rebuilt_as_int(self, frame):
+        _, df = frame
+        out = RandomSampler.setup(df, random_state=0).sample(N)
+        assert str(out["n"].dtype).lower().startswith("int")

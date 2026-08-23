@@ -22,12 +22,25 @@ class DtypeMeta:
     cat:str = "categorical"
     const:str = "constant"
 
+# np.float64 subclasses float but np.float32 does not, hence np.floating
+def _is_missing(val) -> bool:
+    if val is None:
+        return True
+    return isinstance(val, (float, np.floating)) and np.isnan(val)
+
 def _column(f: FeatureMeta, values: np.ndarray) -> np.ndarray:
-    if f.dtype == DtypeMeta.cat or (f.dtype == DtypeMeta.const and f.low is None):
+    if (
+        f.dtype == DtypeMeta.cat
+        or (f.dtype == DtypeMeta.const and f.low is None)
+    ):
         return values.astype(str)
 
     numeric = values.astype(float)
-    if f.dtype in (DtypeMeta.integer, DtypeMeta.bin):
+
+    if (
+        f.dtype in (DtypeMeta.integer, DtypeMeta.bin)
+        and np.isfinite(numeric).all()
+    ):
         whole = numeric.astype(np.int64)
         if np.array_equal(numeric, whole):
             return whole
@@ -122,15 +135,29 @@ class BaseSampler(ABC):
 
         X, feature_names, frame = cls._read_input(X)
 
+        missing = np.empty(X.shape, dtype=bool)
+        for col in range(X.shape[1]):
+            missing[:, col] = [_is_missing(val) for val in X[:, col]]
+
+        dead_rows = np.flatnonzero(missing.all(axis=1))
+        if dead_rows.size:
+            raise ValueError(
+                f"Rows {dead_rows.tolist()} are entirely missing (NaN/None); "
+                "they carry no information. Drop them before setup."
+            )
+
+        dead_cols = np.flatnonzero(missing.all(axis=0))
+        if dead_cols.size:
+            names = [feature_names[col] for col in dead_cols]
+            raise ValueError(
+                f"Columns {names!r} are entirely missing (NaN/None); nothing can be "
+                "inferred from them. Drop them before setup."
+            )
+
         features = []
 
         for col in range(X.shape[1]):
-            col_data = X[:, col]
-            
-            if any(val is None or (
-                    isinstance(val, float) and np.isnan(val)
-                ) for val in col_data):
-                raise ValueError(f"Column {col} contains missing values (NaN/None).")
+            col_data = X[:, col][~missing[:, col]]
 
             low, high = None, None
             categories = None
@@ -189,7 +216,7 @@ class BaseSampler(ABC):
         )
 
     @abstractmethod
-    def sample(self, n_samples: int) -> SampleOutput:  # [claude fixed]
+    def sample(self, n_samples: int) -> SampleOutput:
         pass
 
     def _to_frame(self, samples: np.ndarray) -> SampleOutput:
@@ -197,7 +224,10 @@ class BaseSampler(ABC):
         if self.config.frame is None:
             return samples
 
-        columns = [_column(f, samples[:, i]) for i, f in enumerate(self.config.features)]
+        columns = [
+            _column(f, samples[:, i])
+            for i, f in enumerate(self.config.features)
+        ]
 
         if self.config.frame == "polars":
             import polars as pl

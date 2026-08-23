@@ -8,7 +8,8 @@ def spinner(stop_event):
     while not stop_event.is_set():
         sys.stdout.write(f"\rsampling... {symbols[i % len(symbols)]}")
         sys.stdout.flush()
-        stop_event.wait(0.1)  # returns the moment set() is called; sleep was uninterruptible
+        # returns the moment set() is called; sleep was uninterruptible
+        stop_event.wait(0.1)
         i += 1
 
     sys.stdout.write("\rsampling completed    \n")

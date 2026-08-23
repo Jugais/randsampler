@@ -127,6 +127,9 @@ class SumIntConstraint(SumConstraint):
             rng=rng
         )
 
+        # the distribution settings the parent stores are never read
+        del self.method, self.alpha
+
     def _constrain_selected(
             self,
             row: np.ndarray,
@@ -174,19 +177,25 @@ class CategoriesConstraint(Constraints):
 
         # check arity at construction; a mismatch used to surface as an
         # IndexError from `self.values[:, i]` in the middle of sample()
-        wrong = next(
-            (val for val in values
-             if not isinstance(val, ArrayLike) or len(val) != len(cols)),
-            None,
-        )
+        wrong = None
+        for val in values:
+            if not isinstance(val, ArrayLike) or len(val) != len(cols):
+                wrong = val
+                break
+
         if wrong is not None:
-            raise ConstraintValidationError(
-                f"values holds single values, but cols names {len(cols)} columns. "
-                "Nest each entry to give one value per column, e.g. [[a1, b1], [a2, b2]]."
-                if flat else
-                f"Each entry of values must hold {len(cols)} value(s), one per column "
-                f"in cols; got {wrong!r}."
-            )
+            if flat:
+                detail = (
+                    f"values holds single values, but cols names {len(cols)} columns. "
+                    "Nest each entry to give one value per column, "
+                    "e.g. [[a1, b1], [a2, b2]]."
+                )
+            else:
+                detail = (
+                    f"Each entry of values must hold {len(cols)} value(s), one per "
+                    f"column in cols; got {wrong!r}."
+                )
+            raise ConstraintValidationError(detail)
 
         val_tuples = [tuple(v) for v in values]
         if len(set(val_tuples)) != len(values):
@@ -259,7 +268,9 @@ class StepConstraint(Constraints):
 
         v.validate_range(low, high, step)
 
-        n_steps = int(np.floor((high - low) / step))
+        # (0.3 - 0.0) / 0.1 is 2.9999999999999996,
+        n_grid = (high - low) / step
+        n_steps = int(np.floor(n_grid + 1e-9 * max(1.0, abs(n_grid))))
         self.values = low + np.arange(n_steps + 1) * step
 
         self.low = low
@@ -301,6 +312,15 @@ class SumStepConstraint(StepConstraint):
         else:
             highs = np.ones(len(cols))*100
 
+        # a short lows/highs used to surface as an IndexError,
+        # either here on lows[0] or later on highs[i] inside sample()
+        for name, bounds in (("lows", lows), ("highs", highs)):
+            if len(bounds) != len(cols):
+                raise ConstraintValidationError(
+                    f"{name} must hold one value per column in cols: expected "
+                    f"{len(cols)}, got {len(bounds)}."
+                )
+
         #　parent col/low/high stay internal
         super().__init__(
             col=cols[0],
@@ -316,6 +336,30 @@ class SumStepConstraint(StepConstraint):
         self.sum_value = sum_value
         self.step = step
 
+        # feasibility follows from the arguments, so decide it here
+        # rather than raising once per row from inside a joblib worker
+        total_lows = np.sum(self.lows)
+        residual = sum_value - total_lows
+        if residual < -1e-9:
+            raise ConstraintValidationError(
+                f"Sum of lows ({total_lows}) exceeds sum_value ({sum_value})."
+            )
+
+        n_grid = residual / step
+        if not np.isclose(n_grid, round(n_grid)):
+            raise ConstraintValidationError(
+                f"sum_value ({sum_value}) minus the sum of lows ({total_lows}) "
+                f"is {residual}, which is not a multiple of step ({step})."
+            )
+
+        capacity = np.sum(self.highs - self.lows) / step
+        if round(n_grid) > capacity + 1e-9:
+            raise ConstraintValidationError(
+                f"sum_value ({sum_value}) is unreachable within highs: it needs "
+                f"{round(n_grid)} steps of {step}, but only {capacity} fit "
+                "between lows and highs."
+            )
+
     def _constrain(
             self,
             row: np.ndarray,
@@ -326,33 +370,25 @@ class SumStepConstraint(StepConstraint):
         current_values = self.lows.copy().astype(float)
         current_sum = np.sum(current_values)
         residual = self.sum_value - current_sum
-        
-        # Basic validation for feasibility
-        if residual < -1e-9:
-            raise ConstraintViolationError(
-                f"Sum of lows ({current_sum}) exceeds sum_value ({self.sum_value})."
-            )
-        
-        if not np.isclose(residual % self.step, 0) and not np.isclose(residual % self.step, self.step):
-            raise ConstraintViolationError(
-                f"Residual ({residual}) is not a multiple of step ({self.step})."
-            )
 
         # Randomly distribute the residual in 'step' increments
         num_steps = int(round(residual / self.step))
         
         for _ in range(num_steps):
-            # Find indices where adding a step won't exceed the specific column's high limit
+            # Find indices where adding a step won't exceed the column's high limit
             eligible_indices = [
-                i for i, val in enumerate(current_values)
+                i
+                for i, val in enumerate(current_values)
                 if val + self.step <= self.highs[i] + 1e-9
             ]
-            
+
+            # unreachable once __init__ checks the capacity; kept so a
+            # floating-point edge case names itself instead of failing in rng.choice
             if not eligible_indices:
                 raise ConstraintViolationError(
                     "Target sum_value is unreachable within defined highs."
                 )
-            
+
             target_idx = rng.choice(eligible_indices)
             current_values[target_idx] += self.step
             

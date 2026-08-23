@@ -13,6 +13,6 @@ class DataFrameLike(Protocol):
     def columns(self) -> Any: ...
     def to_numpy(self) -> np.ndarray: ...
 
-SetupInput: TypeAlias = Union[np.ndarray, DataFrameLike]  # [claude fixed]
+SetupInput: TypeAlias = Union[np.ndarray, DataFrameLike]
 
 SampleOutput: TypeAlias = Any

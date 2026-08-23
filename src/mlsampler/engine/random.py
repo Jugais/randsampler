@@ -15,6 +15,7 @@ from ..types import Numeric, ArrayLike, ConstraintFn, ColumnRef, SampleOutput
 from types import MappingProxyType
 from collections import defaultdict
 from collections.abc import Sequence
+from itertools import chain  # flatten the parallel chunks
 from joblib import Parallel, delayed, effective_n_jobs
 
 import warnings
@@ -260,10 +261,16 @@ class RandomSampler(BaseSampler):
             kwargs["col"] = self._resolve(kwargs["col"])
 
         if callable(constraint_fn):
-            self._constraints.append(self._build("callable", FunctionConstraint, fn=constraint_fn, **kwargs))
-            self._funcs.append(self._build("callable", FunctionConstraint, fn=constraint_fn, **kwargs))
+            # build once and register the same object in both lists
+            constraint = self._build(
+                "callable", FunctionConstraint, fn=constraint_fn, **kwargs
+            )
+            self._constraints.append(constraint)
+            self._funcs.append(constraint)
         elif isinstance(constraint_fn, str) and constraint_fn in self._registry:
-            self._constraints.append(self._build(constraint_fn, self._registry[constraint_fn], **kwargs))
+            self._constraints.append(
+                self._build(constraint_fn, self._registry[constraint_fn], **kwargs)
+            )
         else:
             raise ConstraintTypeError(
                 f"Unsupported constraint type: {constraint_fn!r}. "
@@ -336,7 +343,11 @@ class RandomSampler(BaseSampler):
                     x[i] = "unknown"
         return x
 
-    def _apply_constraints(self, row: np.ndarray, rng: np.random.Generator) -> Optional[np.ndarray]:
+    def _apply_constraints(
+            self,
+            row: np.ndarray,
+            rng: np.random.Generator
+        ) -> Optional[np.ndarray]:
         """
         Apply all registered constraints sequentially.
 
@@ -368,7 +379,11 @@ class RandomSampler(BaseSampler):
             row = result
         return row
 
-    def _apply_funcs(self, row: np.ndarray, rng: np.random.Generator) -> Optional[np.ndarray]:
+    def _apply_funcs(
+            self,
+            row: np.ndarray,
+            rng: np.random.Generator
+        ) -> Optional[np.ndarray]:
         for constraint in self._funcs:
             result = constraint(row, rng)
             if result is None:
@@ -376,6 +391,22 @@ class RandomSampler(BaseSampler):
         return row
 
     def _detect_conflicts(self):
+        """
+        Check the registered constraints against the feature metadata.
+
+        Called from `sample()` before any row is generated, so a bad registration is
+        reported up front instead of surfacing as an exhausted retry loop inside a
+        joblib worker.
+
+        Constraints are grouped by the columns they name -- `cols`, or `col` for
+        ``"step"``, which stores it as a one-element `cols` -- and each group is
+        checked against that column's `FeatureMeta`.
+
+        Registry keys are matched with `isinstance`, not `type`, so a constraint also
+        answers to the key of any class it inherits from: ``"sumint"`` reports as
+        ``{"sum", "sumint"}`` and is rejected on a categorical column under either
+        name.
+        """
         col_usage = defaultdict(list)
         constraints_by_col = defaultdict(list)
 
@@ -386,10 +417,10 @@ class RandomSampler(BaseSampler):
 
         for col, ids in col_usage.items():
             constraints = constraints_by_col[col]
-            types = {
-                key for c in constraints
-                for key, cls in self._registry.items() if isinstance(c, cls)
-            }
+            types = set()
+            for key, cls in self._registry.items():
+                if any(isinstance(c, cls) for c in constraints):
+                    types.add(key)
 
             if col >= self.n_features:
                 raise ConstraintValidationError(
@@ -410,7 +441,8 @@ class RandomSampler(BaseSampler):
             if meta.dtype == dm.const:
                 if len(ids) > 1:
                     warnings.warn(
-                        f"Const column {meta.name!r} has multiple constraints {ids} (types={types})",
+                        f"Const column {meta.name!r} has multiple constraints "
+                        f"{ids} (types={types})",
                         DuplicateColumnWarning
                     )
 
@@ -428,7 +460,9 @@ class RandomSampler(BaseSampler):
             return
 
         named = [
-            self._name(c) for c in self._constraints if getattr(c, "rng", None) is not None
+            self._name(c)
+            for c in self._constraints
+            if getattr(c, "rng", None) is not None
         ]
         if named:
             warnings.warn(
@@ -438,7 +472,8 @@ class RandomSampler(BaseSampler):
                 ParallelRngWarning
             )
 
-    # the retry loop must keep advancing a single stream or every attempt reproduces the rejected row
+    # the retry loop must keep advancing a single stream, or every attempt
+    # reproduces the candidate that was just rejected
     def _generate_one(self, rng: np.random.Generator):
         for _ in range(self.max_retries):
             x = self._base_sample(rng)
@@ -498,7 +533,7 @@ class RandomSampler(BaseSampler):
                 delayed(self._generate_chunk)(size, np.random.default_rng(seed))
                 for size, seed in zip(sizes, seeds)
             )  # type: ignore[assignment]
-            samples = [row for chunk in chunks for row in chunk]
+            samples = list(chain.from_iterable(chunks))
         return np.array(samples)
 
 

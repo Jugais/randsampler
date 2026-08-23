@@ -106,15 +106,15 @@ def test_stepsum(mix):
     assert np.all(out <= 6)
 
 def test_stepsum_infeasible_raises(mix):
-    """Documented failure mode: the target cannot be reached within `highs`."""
-    from mlsampler.errors import ConstraintViolationError
+    """Documented failure mode: the target cannot be reached within `highs`.
+    Decided from the arguments, so it is rejected at registration."""
+    from mlsampler.errors import ConstraintValidationError
 
     sampler = RandomSampler.setup(mix.values, random_state=0)
-    sampler.set_constraints(
-        "stepsum", cols=[0, 1, 2], sum_value=100, lows=[0, 0, 0], highs=[1, 1, 1], step=1
-    )
-    with pytest.raises(ConstraintViolationError):
-        sampler.sample(1)
+    with pytest.raises(ConstraintValidationError, match="unreachable within highs"):
+        sampler.set_constraints(
+            "stepsum", cols=[0, 1, 2], sum_value=100, lows=[0, 0, 0], highs=[1, 1, 1], step=1
+        )
 
 def test_categories_single_column(train):
     sampler = RandomSampler.setup(train, random_state=0)

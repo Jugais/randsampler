@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional
 from ..base import BaseSampler, DtypeMeta as dm
-from ..types import SampleOutput  # [claude fixed]
+from ..types import SampleOutput
 from ..terminals import spinning
 try:
     from scipy.stats import qmc
@@ -73,7 +73,11 @@ class HyperGridSampler(BaseSampler):
             sampled = self.rng.choice(vals, size=n_samples)
             cols.append(sampled)
 
-        return np.column_stack([c.astype(object) for c in cols]) if cols else np.empty((n_samples, 0))
+        if not cols:
+            return np.empty((n_samples, 0))
+
+        # object keeps the dtypes apart; column_stack would unify them into strings
+        return np.column_stack([c.astype(object) for c in cols])
 
     def _sample(self, n_samples: int) -> np.ndarray:
         self.rng = np.random.default_rng(self.config.random_state)
