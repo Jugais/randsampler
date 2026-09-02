@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tutorial &mdash; mlsampler 0.5.0 documentation</title>
+  <title>Tutorial &mdash; mlsampler 0.5.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=1dd76d02"></script>
+      <script src="_static/documentation_options.js?v=b9afe91b"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
@@ -295,9 +295,11 @@ sampled.</p>
 </pre></div>
 </div>
 <p>The target must be reachable: <code class="docutils literal notranslate"><span class="pre">sum(lows)</span></code> must not exceed <code class="docutils literal notranslate"><span class="pre">sum_value</span></code>, the residual
-must be a whole number of steps, and <code class="docutils literal notranslate"><span class="pre">sum(highs)</span></code> must be able to absorb it. Otherwise
-a <code class="docutils literal notranslate"><span class="pre">ConstraintViolationError</span></code> is raised — for example <code class="docutils literal notranslate"><span class="pre">sum_value=100</span></code> with
-<code class="docutils literal notranslate"><span class="pre">highs=[1,</span> <span class="pre">1,</span> <span class="pre">1]</span></code> cannot succeed.</p>
+must be a whole number of steps, and <code class="docutils literal notranslate"><span class="pre">sum(highs)</span></code> must be able to absorb it. All three
+follow from the arguments, so an unreachable target raises <code class="docutils literal notranslate"><span class="pre">ConstraintValidationError</span></code>
+when the constraint is registered rather than during <code class="docutils literal notranslate"><span class="pre">sample()</span></code> — for example
+<code class="docutils literal notranslate"><span class="pre">sum_value=100</span></code> with <code class="docutils literal notranslate"><span class="pre">highs=[1,</span> <span class="pre">1,</span> <span class="pre">1]</span></code> cannot succeed. <code class="docutils literal notranslate"><span class="pre">lows</span></code> and <code class="docutils literal notranslate"><span class="pre">highs</span></code> must
+also hold one value per column in <code class="docutils literal notranslate"><span class="pre">cols</span></code>.</p>
 </section>
 <section id="categories">
 <h3><code class="docutils literal notranslate"><span class="pre">categories</span></code><a class="headerlink" href="#categories" title="Link to this heading"></a></h3>
